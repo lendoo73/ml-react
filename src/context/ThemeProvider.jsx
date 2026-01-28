@@ -1,0 +1,27 @@
+import {useEffect, useState} from "react";
+import {ThemeContext} from "./themeExporter.js";
+
+const getInitialTheme = () => localStorage.getItem("theme") || "light";
+
+export const ThemeProvider = ({children}) => {
+    const [theme, setTheme] = useState(getInitialTheme);
+
+    useEffect(() => {
+        document.documentElement.classList.remove("light", "dark");
+        document.documentElement.classList.add(theme);
+    });
+
+    const toggleTheme = () => {
+        setTheme(prevTheme => {
+            const newTheme = prevTheme === "dark" ? "light" : "dark";
+            localStorage.setItem("theme", newTheme);
+            return newTheme;
+        });
+    };
+
+    return (
+        <ThemeContext.Provider value={{theme, toggleTheme}}>
+            {children}
+        </ThemeContext.Provider>
+    );
+};
