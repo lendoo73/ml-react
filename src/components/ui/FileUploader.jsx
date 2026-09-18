@@ -1,9 +1,11 @@
-import {useRef, useState} from "react";
+import { useState } from "react";
 import {sendFileToAPI} from "../../utils/fileApi.js";
+import { useLanguage } from "../../context/useLanguage.js";
 
 
-export const FileUploader = ({label, buttonText, accept, endpoint, onResult, file, onFileSelect}) => {
+export const FileUploader = ({label, buttonText, accept, endpoint, onResult, file, onFileSelect, onLoadingChange, disabled = false, fieldName = "image"}) => {
     const [loading, setLoading] = useState(false);
+    const { t } = useLanguage();
 
     const handleFileChange = async (e) => {
         const selectedFile = e.target.files[0];
@@ -11,13 +13,15 @@ export const FileUploader = ({label, buttonText, accept, endpoint, onResult, fil
 
         if (endpoint && onResult) {
             setLoading(true);
+            onLoadingChange?.(true);
             try {
-                const result = await sendFileToAPI(selectedFile, endpoint);
+                const result = await sendFileToAPI(selectedFile, endpoint, fieldName);
                 onResult(result);
             } catch (err) {
                 console.error(err);
             } finally {
                 setLoading(false);
+                onLoadingChange?.(false);
             }
         }
     };
@@ -32,6 +36,8 @@ export const FileUploader = ({label, buttonText, accept, endpoint, onResult, fil
                 dark:border-gray-600 dark:hover:bg-gray-800
                 transition
             "
+            style={disabled || loading ? { pointerEvents: "none", opacity: 0.6 } : undefined}
+            aria-disabled={disabled || loading}
         >
         <span className="text-sm mb-2 text-gray-600 dark:text-gray-400">{label}</span>
             <input
@@ -39,6 +45,7 @@ export const FileUploader = ({label, buttonText, accept, endpoint, onResult, fil
                 className="hidden"
                 accept={accept}
                 onChange={handleFileChange}
+                disabled={disabled || loading}
             />
 
             <span
@@ -47,7 +54,7 @@ export const FileUploader = ({label, buttonText, accept, endpoint, onResult, fil
                 bg-gray-800 text-gray-100
                 dark:bg-gray-200 dark:text-gray-900
             "
-            >{loading ? "Uploading..." : buttonText}</span>
+            >{loading ? t("ui.uploading") : buttonText}</span>
             {file && !loading && (
                 <p className="text-sm text-gray-700 dark:text-gray-400 mt-2">
                     {file.name}

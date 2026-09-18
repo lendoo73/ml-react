@@ -5,7 +5,7 @@ export const Header = () => {
 
     return (
         <div className="
-            text-2xl text-gray-800 p-2 mb-2 shadow-lg
+            w-full p-2 mb-2 text-center text-2xl text-gray-800 shadow-lg
             dark:text-gray-200
         ">{t("header")}</div>
     );

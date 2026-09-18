@@ -1,23 +1,25 @@
 import { useState, useCallback, useRef } from "react";
-import {FixedSpinner} from "./FixedSpinner.jsx";
 
 export const VideoUploader = ({
     label = "Upload a video",
     buttonText = "Choose video",
     accept = "video/mp4,video/webm,video/ogg",
     endpoint,
+    fieldName = "video",
     onResult,
     onError,
+    onLoadingChange,
     video,
     onVideoChange,
     ariaLabel = "Upload a video in video/mp4,video/webm,video/ogg format",
+    disabled = false,
 }) => {
     const [loading, setLoading] = useState(false);
     const inputRef = useRef(null);
 
     const sendVideoToAPI = useCallback(async (videoFile, url) => {
         const formData = new FormData();
-        formData.append("video", videoFile);
+        formData.append(fieldName, videoFile);
 
         const res = await fetch(url, {
             method: "POST",
@@ -28,7 +30,7 @@ export const VideoUploader = ({
             throw new Error(`HTTP ${res.status}: ${await res.text()}`);
         }
         return res.json();
-    }, []);
+    }, [fieldName]);
 
 
     const handleChange = useCallback(
@@ -39,6 +41,7 @@ export const VideoUploader = ({
 
             if (selected && endpoint && onResult) {
                 setLoading(true);
+                onLoadingChange?.(true);
                 try {
                     const result = await sendVideoToAPI(selected, endpoint);
                     onResult(result);
@@ -47,10 +50,11 @@ export const VideoUploader = ({
                     onError?.(err.message || "Failed to upload video.");
                 } finally {
                     setLoading(false);
+                    onLoadingChange?.(false);
                 }
             }
         },
-        [endpoint, onResult, onError, onVideoChange, sendVideoToAPI]
+        [endpoint, onResult, onError, onLoadingChange, onVideoChange, sendVideoToAPI]
     );
 
     return (
@@ -63,6 +67,8 @@ export const VideoUploader = ({
                 dark:border-gray-600 dark:hover:bg-gray-800
                 transition
             "
+            style={disabled || loading ? { pointerEvents: "none", opacity: 0.6 } : undefined}
+            aria-disabled={disabled || loading}
             aria-label={ariaLabel || label}
         >
             <span className="text-sm mb-2 text-gray-600 dark:text-gray-400">{label}</span>
@@ -74,7 +80,7 @@ export const VideoUploader = ({
                 accept={accept}
                 onChange={handleChange}
                 onClick={(e) => { e.currentTarget.value = null; }}
-                disabled={loading}
+                disabled={disabled || loading}
             />
 
             <span
@@ -84,17 +90,18 @@ export const VideoUploader = ({
                     dark:bg-gray-200 dark:text-gray-900
                 "
             >{loading ? "Uploading..." : buttonText}</span>
+            {loading ? (
+                <span
+                    className="mt-3 h-6 w-6 animate-spin rounded-full border-4 border-gray-400 border-t-blue-600"
+                    aria-label="Uploading"
+                />
+            ) : null}
 
             {video && !loading && (
                 <p className="text-sm text-gray-700 dark:text-gray-400 mt-2">
                     {video.name}
                 </p>
             )}
-            <FixedSpinner
-                className="text-red-700 dark:text-red-300"
-                loading={loading}
-                message="Waiting for Prediction..."
-            />
         </label>
     );
 };

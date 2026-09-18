@@ -1,14 +1,14 @@
 const getApiUrl = async () => {
     try {
-        const res = await fetch('/config.json');
+        const res = await fetch("/config.json");
         const json = await res.json();
         return json.API_URL;
     }
-    catch (error) {
+    catch {
         console.error("Error: config.json not found");
         return window.location.origin;
     }
-}
+};
 
 let apiUrl = await getApiUrl();
 

@@ -1,8 +1,8 @@
-export const sendFileToAPI = async (file, endpoint) => {
+export const sendFileToAPI = async (file, endpoint, fieldName = "image") => {
     if (!file) return;
 
     const formData = new FormData();
-    formData.append("image", file, file.name);
+    formData.append(fieldName, file, file.name);
 
     try {
         const response = await fetch(endpoint, {
