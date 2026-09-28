@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Maximize, Minimize } from "lucide-react";
 import { useLanguage } from "../../context/useLanguage.js";
+import { Checkbox } from "./Checkbox.jsx";
+import { ConfidenceThresholdControl } from "./ConfidenceThresholdControl.jsx";
+import { AnnotationSizeControl } from "./AnnotationSizeControl.jsx";
 
 export const ImageWithAnnotations = (
     {
@@ -13,20 +16,34 @@ export const ImageWithAnnotations = (
        hideLabel = "Hide boxes",
        alt = "Uploaded image",
        onImageLoad,
+       showBoundaryToggle = false,
+       boundaryBoxesDefault = false,
+       confidenceThreshold = 0.5,
+       onConfidenceThresholdChange,
     }) => {
     const { t } = useLanguage();
     const [showBoxes, setShowBoxes] = useState(true);
+    const [showConfidence, setShowConfidence] = useState(true);
+    const [showLabels, setShowLabels] = useState(true);
+    const [showBoundaryBoxes, setShowBoundaryBoxes] = useState(boundaryBoxesDefault);
+    const [annotationSize, setAnnotationSize] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [classSelection, setClassSelection] = useState({ key: "", values: [] });
     const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
     const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
-    const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     const imgRef = useRef();
     const containerRef = useRef();
 
     const normalizedBoxes = useMemo(() => (Array.isArray(boxes) ? boxes : []), [boxes]);
     const normalizedPolygons = useMemo(() => (Array.isArray(polygons) ? polygons : []), [polygons]);
+    const polygonBoxes = useMemo(() => normalizedPolygons.map((polygon) => {
+        const points = polygon.polygon ?? [];
+        const xs = points.map(([x]) => x);
+        const ys = points.map(([, y]) => y);
+        return xs.length ? { ...polygon, bbox: { x_min: Math.min(...xs), y_min: Math.min(...ys), x_max: Math.max(...xs), y_max: Math.max(...ys) } } : polygon;
+    }), [normalizedPolygons]);
     const annotations = useMemo(() => [...normalizedBoxes, ...normalizedPolygons], [normalizedBoxes, normalizedPolygons]);
+    const renderedBoxes = showBoundaryToggle ? [...normalizedBoxes, ...polygonBoxes] : normalizedBoxes;
     const classes = useMemo(() => (
         [...new Set(annotations.map((annotation) => annotation.class_name).filter(Boolean))]
     ), [annotations]);
@@ -34,10 +51,27 @@ export const ImageWithAnnotations = (
         if (annotation.class_name) counts[annotation.class_name] = (counts[annotation.class_name] ?? 0) + 1;
         return counts;
     }, {}), [annotations]);
+    const coordinateSize = useMemo(() => {
+        const coordinates = annotations.flatMap((annotation) => {
+            if (Array.isArray(annotation.polygon)) return annotation.polygon;
+            if (annotation.bbox) {
+                return [
+                    [annotation.bbox.x_max, annotation.bbox.y_max],
+                    [annotation.bbox.x_min, annotation.bbox.y_min],
+                ];
+            }
+            return [];
+        });
+        return {
+            width: Math.max(naturalSize.width, ...coordinates.map(([x]) => x ?? 0)),
+            height: Math.max(naturalSize.height, ...coordinates.map(([, y]) => y ?? 0)),
+        };
+    }, [annotations, naturalSize]);
     const classKey = classes.join("\u0000");
 
     const selectedClasses = classSelection.key === classKey ? classSelection.values : classes;
     const updateSelectedClasses = (values) => setClassSelection({ key: classKey, values });
+
 
     useEffect(() => {
         const img = imgRef.current;
@@ -46,14 +80,11 @@ export const ImageWithAnnotations = (
         const updateSize = () => {
             setImgSize({ width: img.clientWidth, height: img.clientHeight });
             setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
-            setContainerSize({
-                width: containerRef.current?.clientWidth ?? 0,
-                height: containerRef.current?.clientHeight ?? 0,
-            });
         };
 
         img.addEventListener("load", updateSize);
         window.addEventListener("resize", updateSize);
+        updateSize();
 
         return () => {
             img.removeEventListener("load", updateSize);
@@ -74,9 +105,17 @@ export const ImageWithAnnotations = (
         return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
     }, []);
 
-    if (!image) return null;
-    const imageUrl = typeof image === "string" ? image : URL.createObjectURL(image);
+    const imageUrl = useMemo(() => {
+        if (!image) return "";
+        return typeof image === "string" ? image : URL.createObjectURL(image);
+    }, [image]);
 
+    useEffect(() => {
+        if (!image || typeof image === "string") return undefined;
+        return () => URL.revokeObjectURL(imageUrl);
+    }, [image, imageUrl]);
+
+    if (!image) return null;
     const toggleFullscreen = async () => {
         if (document.fullscreenElement) {
             await document.exitFullscreen();
@@ -99,24 +138,26 @@ export const ImageWithAnnotations = (
             : "left-0 top-0 -translate-y-full"
     );
     const hasValidImageSize = naturalSize.width > 0 && naturalSize.height > 0 && imgSize.width > 0 && imgSize.height > 0;
-    const imageOffsetX = isFullscreen
-        ? (containerSize.width - imgSize.width) / 2
-        : 0;
-    const imageOffsetY = isFullscreen
-        ? (containerSize.height - imgSize.height) / 2
-        : 0;
+    const imageOffsetX = 0;
+    const imageOffsetY = 0;
 
     return (
         <div
             ref={containerRef}
-            className={`relative mb-16 w-full bg-black ${width} lg:mb-0 ${isFullscreen ? "flex items-center justify-center" : ""}`}
+            className={`relative mb-16 w-full bg-transparent ${width} lg:mb-0 ${isFullscreen ? "flex items-center justify-center" : "lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-center lg:gap-4"}`}
         >
+            <div className={`relative min-w-0 ${isFullscreen ? "w-fit max-w-full" : ""}`}>
             <img
                 ref={imgRef}
                 src={imageUrl}
                 alt={alt}
                 className={`block ${isFullscreen ? "max-h-screen max-w-full object-contain" : "w-full"}`}
-                onLoad={onImageLoad}
+                onLoad={(event) => {
+                    const loadedImage = event.currentTarget;
+                    setImgSize({ width: loadedImage.clientWidth, height: loadedImage.clientHeight });
+                    setNaturalSize({ width: loadedImage.naturalWidth, height: loadedImage.naturalHeight });
+                    onImageLoad?.(event);
+                }}
             />
 
             {showBoxes &&
@@ -136,15 +177,24 @@ export const ImageWithAnnotations = (
                                     width: imgSize.width,
                                     height: imgSize.height,
                                 }}
-                                viewBox={`0 0 ${naturalSize.width} ${naturalSize.height}`}
+                                viewBox={`0 0 ${imgSize.width} ${imgSize.height}`}
                                 preserveAspectRatio="none"
                             >
-                                <polygon points={points.map(([x, y]) => `${x},${y}`).join(" ")} fill={color} fillOpacity="0.35" stroke={color} strokeWidth="3" vectorEffect="non-scaling-stroke" />
+                                <polygon
+                                    points={points
+                                        .map(([x, y]) => `${x * imgSize.width / coordinateSize.width},${y * imgSize.height / coordinateSize.height}`)
+                                        .join(" ")}
+                                    fill={color}
+                                    fillOpacity="0.35"
+                                    stroke={color}
+                                    strokeWidth={3 * annotationSize}
+                                    vectorEffect="non-scaling-stroke"
+                                />
                             </svg>
                         );
                     })}
             {showBoxes &&
-                normalizedBoxes
+                renderedBoxes
                     .filter((box) => selectedClasses.includes(box.class_name))
                     .map((r, index) => {
                     const { bbox } = r;
@@ -154,39 +204,45 @@ export const ImageWithAnnotations = (
 
                     if (!hasValidImageSize || !hasValidBoundingBox) return null;
 
-                    const scaleX = imgSize.width / naturalSize.width;
-                    const scaleY = imgSize.height / naturalSize.height;
-                    const labelText = `${r.class_name} ${(r.confidence * 100).toFixed(1)}%`;
+                    const scaleX = imgSize.width / coordinateSize.width;
+                    const scaleY = imgSize.height / coordinateSize.height;
+                    const confidenceText = `${(r.confidence * 100).toFixed(1)}%`;
+                    const labelText = [
+                        showLabels ? r.class_name : "",
+                        showConfidence ? confidenceText : "",
+                    ].filter(Boolean).join(" ");
                     const boxWidth = (bbox.x_max - bbox.x_min) * scaleX;
                     return (
                         <div
                             key={index}
-                            className="group absolute border-2 border-red-500"
+                            className={`group absolute ${showBoundaryToggle && !showBoundaryBoxes ? "border-transparent" : "border-red-500"}`}
                             style={{
                                 left: imageOffsetX + bbox.x_min * scaleX,
                                 top: imageOffsetY + bbox.y_min * scaleY,
                                 width: (bbox.x_max - bbox.x_min) * scaleX,
                                 height: (bbox.y_max - bbox.y_min) * scaleY,
+                                borderWidth: `${2 * annotationSize}px`,
                             }}
                             title={labelText}
                             aria-label={labelText}
                         >
                             <div
                                 className={`${getLabelPosition(bbox, scaleX, scaleY)} absolute z-10 box-border overflow-hidden rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white shadow-sm opacity-90 transition group-hover:opacity-100`}
-                                style={{ width: `${Math.max(boxWidth, 24)}px` }}
+                                style={{ width: `${Math.max(boxWidth, 24)}px`, fontSize: `${0.75 * annotationSize}rem`, lineHeight: `${1 * annotationSize}rem` }}
+                                hidden={!showLabels && !showConfidence}
                                 title={labelText}
                                 aria-label={labelText}
                             >
-                                <span className="block truncate whitespace-nowrap">
-                                    {labelText}
-                                </span>
+                                <span className="block truncate whitespace-nowrap">{labelText}</span>
                             </div>
                         </div>
                     );
                 })}
 
+            </div>
+            <div className={`flex min-w-0 flex-col gap-4 lg:col-start-2 ${isFullscreen ? "hidden" : ""}`}>
             {(showToggle && annotations.length > 0) || image ? (
-                <div className="absolute left-2 right-2 top-[calc(100%+1rem)] z-30 flex items-start justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:left-[calc(100%+1rem)] lg:right-auto lg:top-2 lg:w-64 lg:flex-row">
+                <div data-prediction-control className="flex items-start justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <button
                         type="button"
                         onClick={toggleFullscreen}
@@ -210,9 +266,17 @@ export const ImageWithAnnotations = (
                     ) : <span />}
                 </div>
             ) : null}
+            {onConfidenceThresholdChange ? (
+                <div data-prediction-control>
+                    <ConfidenceThresholdControl
+                        value={confidenceThreshold}
+                        onChange={onConfidenceThresholdChange}
+                    />
+                </div>
+            ) : null}
 
             {annotations.length > 0 ? (
-                <div className="absolute bottom-[-4rem] left-2 z-40 min-w-56 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 lg:bottom-auto lg:left-[calc(100%+1rem)] lg:top-24 lg:w-64">
+                <div data-prediction-control className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
                             <div className="mb-2 border-b border-gray-200 pb-2 text-center text-sm font-semibold dark:border-gray-700">
                                 {t("ui.classes")}
                             </div>
@@ -260,6 +324,24 @@ export const ImageWithAnnotations = (
                             </div>
                 </div>
             ) : null}
+            {showBoundaryToggle ? (
+                <div data-prediction-control className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                    <div className="mb-2 border-b border-gray-200 pb-2 text-center text-sm font-semibold dark:border-gray-700">
+                        {t("image.annotationOptions")}
+                    </div>
+                    <Checkbox checked={showBoundaryBoxes} onChange={(event) => setShowBoundaryBoxes(event.target.checked)} className="mb-2 text-xs">
+                        <span>{t("image.boundaryBoxes")}</span>
+                    </Checkbox>
+                    <Checkbox checked={showConfidence} onChange={(event) => setShowConfidence(event.target.checked)} className="mb-2 text-xs">
+                        <span>{t("image.confidence")}</span>
+                    </Checkbox>
+                    <Checkbox checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} className="text-xs">
+                        <span>{t("image.labels")}</span>
+                    </Checkbox>
+                    <AnnotationSizeControl value={annotationSize} onChange={setAnnotationSize} />
+                </div>
+            ) : null}
+            </div>
         </div>
     );
 };

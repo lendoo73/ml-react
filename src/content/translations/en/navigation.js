@@ -11,12 +11,15 @@ export const navigation = [
                         {
                             id: "yolo26-classify-official",
                             name: "YOLO26 Classification",
-                            iconKey: "classification",
+                            iconKey: "yolo26",
+                            iconSrc: "/logos/yolo26-logo.svg",
+                            activeIconSrc: "/logos/yolo26-logo-active.svg",
                         },
                         {
-                            id: "classification-custom-placeholder",
-                            name: "Custom model slot",
-                            iconKey: "customModel",
+                            id: "classification-weather-custom",
+                            name: "Weather classifier",
+                            iconKey: "weather",
+                            iconSrc: "/logos/weather-logo.svg",
                         },
                     ],
                 },
@@ -52,8 +55,8 @@ export const navigation = [
                     name: "Pose Estimation",
                     items: [
                         {
-                            id: "pose-placeholder",
-                            name: "Coming soon",
+                            id: "yolo26-pose-official",
+                            name: "YOLO26 Pose",
                             iconKey: "pose",
                         },
                     ],

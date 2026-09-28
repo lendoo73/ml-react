@@ -1,6 +1,7 @@
+import { useCallback } from "react";
 import { API_URL } from "../../../config/settings.js";
 
-export const fetchSegmentationClassPreview = async (model, className) => {
+export const useSegmentationClassPreview = () => useCallback(async (model, className) => {
     const mediaSearchParams = new URLSearchParams({
         query: className,
         per_page: "1",
@@ -18,7 +19,7 @@ export const fetchSegmentationClassPreview = async (model, className) => {
     const params = new URLSearchParams({
         source: sourceUrl,
         output: "image",
-        conf: "false",
+        conf: "0.5",
         color_mode: "instance",
     });
     const response = await fetch(`${API_URL}/api/${model.apiPath}/${model.endpoints.image}?${params.toString()}`);
@@ -27,4 +28,4 @@ export const fetchSegmentationClassPreview = async (model, className) => {
     }
 
     return response.blob();
-};
+}, []);

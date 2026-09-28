@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { waitForVideoJob } from "../../services/videoJobService.js";
+import { useLanguage } from "../../context/useLanguage.js";
 
 export const UrlInput = ({
     label,
@@ -22,18 +24,23 @@ export const UrlInput = ({
     randomClassLabel = "Random class",
     randomClassMatched,
     onRandomClassChange,
+    onProgressChange,
 }) => {
+    const { t } = useLanguage();
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
     const [exampleLoading, setExampleLoading] = useState(false);
     const [selectedRandomClass, setSelectedRandomClass] = useState("");
-    const [randomClassConfirmed, setRandomClassConfirmed] = useState(false);
 
-    const handlePredict = async (url = imgUrl, randomClass = "") => {
+    const handlePredict = async (url = imgUrl) => {
         const urlToPredict = url.trim();
-        if (!urlToPredict) return;
-
         setError("");
+        if (!urlToPredict) {
+            setError(t("ui.enterUrl"));
+            return;
+        }
+
         let parsedUrl;
         try {
             parsedUrl = new URL(urlToPredict);
@@ -53,8 +60,11 @@ export const UrlInput = ({
         }
 
         setLoading(true);
+        setProgress(0);
         onPredictionStart?.();
         onLoadingChange?.(true);
+        const imagePreload = mediaType === "image" ? new Image() : null;
+        if (imagePreload) imagePreload.src = urlToPredict;
 
         try {
             const params = new URLSearchParams({
@@ -78,8 +88,13 @@ export const UrlInput = ({
                 throw new Error(res.status === 400 ? `Bad request: ${message}` : message);
             }
 
-            onResult(data, urlToPredict);
-            if (randomClass || selectedRandomClass) setRandomClassConfirmed(true);
+            const result = data.job_id && mediaType === "video"
+                ? await waitForVideoJob(endpoint, data.job_id, (value) => {
+                    setProgress(value);
+                    onProgressChange?.(value);
+                })
+                : data;
+            onResult(result, urlToPredict);
         } catch (requestError) {
             console.error("Error predicting media URL:", requestError);
             setError(requestError.message || "Unable to process this URL.");
@@ -107,14 +122,15 @@ export const UrlInput = ({
             />
 
             <button
+                type="button"
                 onClick={() => handlePredict()}
-                disabled={disabled || loading || !imgUrl}
+                disabled={disabled || loading}
                 className="
-                    cursor-pointer rounded-md px-4 py-2
+                    cursor-pointer rounded-md px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50
                     bg-blue-600 text-white
                     dark:bg-blue-400 dark:text-gray-900
                 "
-            >            {loading ? "Loading..." : buttonText ?? label}</button>
+            >            {loading ? (progress > 0 ? `${progress}%` : "Loading...") : buttonText ?? label}</button>
             {exampleUrl || onExampleClick ? (
                 <button
                     type="button"
@@ -126,9 +142,8 @@ export const UrlInput = ({
                             const nextUrl = typeof selection === "string" ? selection : selection.url;
                             setSelectedRandomClass(typeof selection === "string" ? "" : selection.query ?? "");
                             onRandomClassChange?.(typeof selection === "string" ? "" : selection.query ?? "");
-                            setRandomClassConfirmed(false);
                             setImgUrl(nextUrl);
-                            await handlePredict(nextUrl, typeof selection === "string" ? "" : selection.query ?? "");
+                            await handlePredict(nextUrl);
                         } catch (exampleError) {
                             console.error("Error loading sample media:", exampleError);
                             setError(exampleError.message || "Unable to load a sample video.");
@@ -144,13 +159,13 @@ export const UrlInput = ({
             ) : null}
             {selectedRandomClass ? (
                 <p className={`basis-full rounded-lg border px-3 py-2 text-base font-medium ${
-                    randomClassMatched === true || (randomClassMatched === undefined && randomClassConfirmed)
+                    randomClassMatched === true
                         ? "border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950/40 dark:text-green-300"
                         : randomClassMatched === false
                             ? "border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950/40 dark:text-red-300"
                             : "border-gray-300 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
                 }`}>
-                    {randomClassMatched === true || (randomClassMatched === undefined && randomClassConfirmed)
+                    {randomClassMatched === true
                         ? "✓ "
                         : randomClassMatched === false ? "✕ " : ""}
                     {randomClassLabel}: <span className="font-bold">{selectedRandomClass}</span>

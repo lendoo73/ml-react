@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Maximize, Minimize } from "lucide-react";
 import { API_URL } from "../../../config/settings.js";
 import { useLanguage } from "../../../context/useLanguage.js";
@@ -7,26 +7,59 @@ import { VideoUploader } from "../../../components/ui/VideoUploader.jsx";
 import { UrlInput } from "../../../components/ui/UrlInput.jsx";
 import { FixedSpinner } from "../../../components/ui/FixedSpinner.jsx";
 import { getRandomVideoUrl } from "../../../services/mediaService.js";
+import { PredictionResultLayout } from "../../../components/ui/PredictionResultLayout.jsx";
+import { ConfidenceThresholdControl } from "../../../components/ui/ConfidenceThresholdControl.jsx";
 
-export const ClassificationVideo = ({ model, onChange }) => {
+export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseChange }) => {
     const { t } = useLanguage();
     const [videoFile, setVideoFile] = useState(null);
+    const [randomClassInputKey, setRandomClassInputKey] = useState(0);
     const [videoUrl, setVideoUrl] = useState("");
     const [videoSourceUrl, setVideoSourceUrl] = useState("");
     const [frames, setFrames] = useState([]);
     const [currentFrame, setCurrentFrame] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isPredicting, setIsPredicting] = useState(false);
+    const [videoProgress, setVideoProgress] = useState(0);
+    const [confidenceThreshold, setConfidenceThreshold] = useState(0.5);
+    const [syncEnabled, setSyncEnabled] = useState(false);
     const videoRef = useRef(null);
     const containerRef = useRef(null);
     const endpoint = `${API_URL}/api/${model.apiPath}/${model.endpoints.video}`;
     const videoUrlEndpoint = `${API_URL}/api/${model.apiPath}/predict/video`;
     const [randomClass, setRandomClass] = useState("");
     const normalizedRandomClass = randomClass.toLowerCase().replace(/[_-]+/g, " ").trim();
+    const selectFrame = useCallback((frame, index) => {
+        setCurrentFrame(frame);
+        const video = videoRef.current;
+        if (!video || video.readyState < 1) return;
+        video.currentTime = frame.timestamp_ms != null
+            ? frame.timestamp_ms / 1000
+            : (video.duration || 0) * (index / Math.max(frames.length - 1, 1));
+    }, [frames.length]);
+    const handleSyncChange = useCallback((event) => {
+        setSyncEnabled(event.target.checked);
+    }, []);
+    const handlePredictionStart = useCallback(() => {
+        setFrames([]);
+        setCurrentFrame(null);
+        setSyncEnabled(false);
+        onPredictionStart?.();
+    }, [onPredictionStart]);
 
     useEffect(() => () => {
         if (videoUrl.startsWith("blob:")) URL.revokeObjectURL(videoUrl);
     }, [videoUrl]);
+
+    useEffect(() => {
+        onVideoResponseChange?.({
+            frames,
+            currentFrame,
+            onSelectFrame: selectFrame,
+            syncEnabled,
+            onSyncChange: handleSyncChange,
+        });
+    }, [currentFrame, frames, handleSyncChange, onVideoResponseChange, selectFrame, syncEnabled]);
 
     useEffect(() => {
         const handleFullscreenChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
@@ -36,6 +69,9 @@ export const ClassificationVideo = ({ model, onChange }) => {
 
     const handleVideoChange = (file) => {
         setVideoFile(file);
+        setVideoSourceUrl("");
+        setRandomClass("");
+        setRandomClassInputKey((key) => key + 1);
         setFrames([]);
         setCurrentFrame(null);
         if (videoUrl.startsWith("blob:")) URL.revokeObjectURL(videoUrl);
@@ -43,8 +79,9 @@ export const ClassificationVideo = ({ model, onChange }) => {
     };
 
     return (
+        <PredictionResultLayout>
         <div className="relative flex flex-col items-center">
-            <FixedSpinner loading={isPredicting} message="Processing video..." />
+            <FixedSpinner loading={isPredicting} message="Processing video..." progress={videoProgress} />
             <div className="w-full rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <SubHeader content={model.mode.video.subheader} className="text-center" />
             <div
@@ -63,18 +100,16 @@ export const ClassificationVideo = ({ model, onChange }) => {
                         const nextFrames = Array.isArray(result) ? result : [];
                         setFrames(nextFrames);
                         setCurrentFrame(nextFrames[0] ?? null);
-                        onChange(result);
                     }}
                     onLoadingChange={setIsPredicting}
-                    onPredictionStart={() => {
-                        setFrames([]);
-                        setCurrentFrame(null);
-                    }}
+                    onProgressChange={setVideoProgress}
+                    onPredictionStart={handlePredictionStart}
                     disabled={isPredicting}
                     ariaLabel={model.mode.video.chooseVideo}
                 />
                 {model.videoUrlInput ? (
                     <UrlInput
+                        key={randomClassInputKey}
                         label={model.videoUrlInput.label}
                         buttonText={model.videoUrlInput.buttonText}
                         placeholder={model.videoUrlInput.placeholder}
@@ -85,6 +120,8 @@ export const ClassificationVideo = ({ model, onChange }) => {
                         inputId={`${model.id}-video-url`}
                         disabled={isPredicting}
                         onLoadingChange={setIsPredicting}
+                        onPredictionStart={handlePredictionStart}
+                        onProgressChange={setVideoProgress}
                         mediaType="video"
                         exampleLabel={t("ui.randomVideo")}
                         exampleLoadingLabel={t("ui.loadingRandomVideo")}
@@ -101,7 +138,6 @@ export const ClassificationVideo = ({ model, onChange }) => {
                             setVideoFile(null);
                             setVideoSourceUrl(sourceUrl ?? videoSourceUrl);
                             setVideoUrl(sourceUrl ?? videoSourceUrl);
-                            onChange(result);
                         }}
                     />
                 ) : null}
@@ -110,10 +146,10 @@ export const ClassificationVideo = ({ model, onChange }) => {
             {videoUrl ? (
                 <div
                     ref={containerRef}
-                    className={`relative mt-4 w-full rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 ${isFullscreen ? "fixed inset-0 z-50 h-[100dvh] w-[100dvw] overflow-hidden rounded-none border-0 bg-black p-0" : "max-w-6xl"}`}
+                    className={`relative mt-4 w-full rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition dark:border-gray-700 dark:bg-gray-800 ${isPredicting ? "pointer-events-none select-none opacity-60 blur-sm" : ""} ${isFullscreen ? "fixed inset-0 z-50 m-0 flex h-[100dvh] w-[100dvw] items-center justify-center overflow-hidden rounded-none border-0 bg-black p-0" : "max-w-6xl"}`}
                 >
-                    <div className={`grid w-full gap-4 ${isFullscreen ? "h-full grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_20rem]"}`}>
-                        <div className={`relative ${isFullscreen ? "flex min-h-0 min-w-0 items-center justify-center" : ""}`}>
+                    <div className={`grid w-full items-center gap-4 ${isFullscreen ? "h-full min-h-0 grid-cols-1 grid-rows-1" : "lg:grid-cols-[minmax(0,1fr)_20rem]"}`}>
+                        <div className={`relative ${isFullscreen ? "flex h-full min-h-0 min-w-0 w-full items-center justify-center" : ""}`}>
                             <video
                                 ref={videoRef}
                                 src={videoUrl}
@@ -137,7 +173,7 @@ export const ClassificationVideo = ({ model, onChange }) => {
                                             : closest;
                                     }, frames[0] ?? null));
                                 }}
-                                className={`rounded-xl bg-black ${isFullscreen ? "max-h-full max-w-full object-contain" : "h-auto w-full"}`}
+                                className={`rounded-xl bg-black ${isFullscreen ? "h-full w-full max-h-full max-w-full object-contain" : "h-auto w-full"}`}
                             />
                             <button
                                 type="button"
@@ -157,37 +193,47 @@ export const ClassificationVideo = ({ model, onChange }) => {
                         <div className={`rounded-xl p-4 shadow-sm ${isFullscreen
                             ? "absolute right-4 top-1/2 z-30 max-h-[calc(100dvh-2rem)] w-[min(20rem,calc(100vw-2rem))] -translate-y-1/2 overflow-y-auto border border-white/30 bg-black/60 text-white backdrop-blur-sm"
                             : "border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"}`}>
-                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("ui.currentPrediction")}</p>
+                            <ConfidenceThresholdControl value={confidenceThreshold} onChange={setConfidenceThreshold} />
                             {currentFrame?.classifications?.length ? (
-                                <div className="mt-3 space-y-3">
-                                    {currentFrame.classifications.slice(0, 5).map((prediction) => (
-                                        <div key={`${prediction.class_name}-${prediction.class_id}`}>
-                                            <div className="flex justify-between text-sm">
-                                                <span className="font-medium">{prediction.class_name}</span>
-                                                <span>{(prediction.confidence * 100).toFixed(1)}%</span>
-                                            </div>
-                                            <div className="mt-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700">
-                                                <div className="h-2 rounded-full bg-blue-600" style={{ width: `${prediction.confidence * 100}%` }} />
-                                            </div>
+                                <>
+                                    <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                        <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("ui.topPrediction")}</div>
+                                        <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                                            {currentFrame.classifications[0]?.class_name ?? t("ui.noPredictions")}
                                         </div>
-                                    ))}
-                                </div>
+                                        {currentFrame.classifications[0] ? (
+                                            <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                                                {t("ui.confidence")}: {(currentFrame.classifications[0].confidence * 100).toFixed(1)}%
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                    <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                        <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("ui.rankedPredictions")}</div>
+                                        <div className="mt-4 space-y-3">
+                                            {currentFrame.classifications
+                                                .filter((prediction) => prediction.confidence >= confidenceThreshold)
+                                                .slice(0, 5)
+                                                .map((prediction) => (
+                                                    <div key={`${prediction.class_name}-${prediction.class_id}`} className="space-y-1">
+                                                        <div className="flex items-center justify-between gap-3 text-sm">
+                                                            <span className="font-medium text-gray-800 dark:text-gray-100">{prediction.class_name}</span>
+                                                            <span className="text-gray-500 dark:text-gray-400">{(prediction.confidence * 100).toFixed(1)}%</span>
+                                                        </div>
+                                                        <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">
+                                                            <div className="h-2 rounded-full bg-blue-600" style={{ width: `${Math.max(prediction.confidence * 100, 2)}%` }} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    </div>
+                                </>
                             ) : <p className="mt-3 text-sm text-gray-500">{t("ui.noPredictions")}</p>}
                         </div>
                     </div>
-                    {!isFullscreen ? (
-                        <div className="mt-6 w-full overflow-hidden rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-                            <div className="rounded-lg bg-blue-100 px-6 py-3 text-center text-lg font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                {t("ui.apiResponse")}
-                            </div>
-                            <div className="max-h-64 overflow-y-auto bg-white p-4 text-sm dark:bg-gray-800">
-                                <pre className="whitespace-pre-wrap break-words">{JSON.stringify(frames, null, 4)}</pre>
-                            </div>
-                        </div>
-                    ) : null}
                 </div>
             ) : null}
             <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{t("ui.classificationVideoResultsNote")}</p>
         </div>
+        </PredictionResultLayout>
     );
 };

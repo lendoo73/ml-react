@@ -112,7 +112,18 @@ export const Sidebar = ({ activePageId, onSelect, isOpen, onClose }) => {
                                                                             : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                                                     }`}
                                                                 >
-                                                                    {ItemIcon ? <ItemIcon className="h-4 w-4" aria-hidden="true" /> : null}
+                                                                    {item.iconSrc ? (
+                                                                        <span className="flex h-5 w-10 shrink-0 items-center">
+                                                                            <img
+                                                                                src={isActive ? (item.activeIconSrc ?? item.iconSrc) : item.iconSrc}
+                                                                                alt=""
+                                                                                className={`block h-5 ${item.iconKey === "yolo26" ? "w-10" : "w-5"}`}
+                                                                                aria-hidden="true"
+                                                                            />
+                                                                        </span>
+                                                                    ) : ItemIcon ? (
+                                                                        <ItemIcon className="h-4 w-4" aria-hidden="true" />
+                                                                    ) : null}
                                                                     <span>{item.name}</span>
                                                                 </button>
                                                             </li>

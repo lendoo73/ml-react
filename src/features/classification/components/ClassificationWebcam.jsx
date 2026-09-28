@@ -3,6 +3,8 @@ import { Maximize, Minimize } from "lucide-react";
 import { API_URL } from "../../../config/settings.js";
 import { useLanguage } from "../../../context/useLanguage.js";
 import { SubHeader } from "../../../components/SubHeader.jsx";
+import { PredictionResultLayout } from "../../../components/ui/PredictionResultLayout.jsx";
+import { ConfidenceThresholdControl } from "../../../components/ui/ConfidenceThresholdControl.jsx";
 
 export const ClassificationWebcam = ({ model, onChange }) => {
     const { t } = useLanguage();
@@ -13,6 +15,7 @@ export const ClassificationWebcam = ({ model, onChange }) => {
     const [isRunning, setIsRunning] = useState(false);
     const [error, setError] = useState("");
     const [predictions, setPredictions] = useState([]);
+    const [confidenceThreshold, setConfidenceThreshold] = useState(0.5);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const containerRef = useRef(null);
 
@@ -71,54 +74,63 @@ export const ClassificationWebcam = ({ model, onChange }) => {
     }, []);
 
     return (
-        <div
-            ref={containerRef}
-            className={`relative flex w-full flex-col items-center ${isFullscreen ? "fixed inset-0 z-50 justify-center overflow-hidden bg-black p-4" : ""}`}
-        >
-            <SubHeader content={model.mode.webcam.subheader} className="text-center" />
-            <div className={`relative grid w-full gap-4 ${isFullscreen ? "max-w-none" : "max-w-6xl lg:grid-cols-[minmax(0,1fr)_20rem]"}`}>
-                <div className={isFullscreen ? "relative flex w-full justify-center" : "relative"}>
-                    <video ref={videoRef} className={`w-full rounded-xl bg-black ${isFullscreen ? "max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] object-contain" : ""}`} autoPlay muted playsInline />
+        <PredictionResultLayout
+            header={<SubHeader content={model.mode.webcam.subheader} className="mb-4 text-center" />}
+            media={(
+                <div ref={containerRef} className={`relative overflow-hidden rounded-xl bg-black ${isFullscreen ? "fixed inset-0 z-50 flex h-screen w-screen justify-center" : ""}`}>
+                    <video ref={videoRef} className={`block w-full ${isFullscreen ? "h-screen w-screen object-contain" : ""}`} autoPlay muted playsInline />
+                    <canvas ref={canvasRef} className="hidden" />
+                </div>
+            )}
+            controls={(
+                <div className="space-y-4">
                     <button
                         type="button"
                         onClick={async () => {
                             if (document.fullscreenElement) await document.exitFullscreen();
                             else await containerRef.current?.requestFullscreen();
                         }}
-                        className="absolute right-3 top-3 z-50 rounded-lg bg-black/70 p-2 text-white hover:bg-black/90"
+                        className="rounded-lg bg-blue-600 p-2 text-white"
                         aria-label={isFullscreen ? t("ui.exitFullscreen") : t("ui.enterFullscreen")}
                     >
                         {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
                     </button>
-                </div>
-                <div className={`rounded-xl p-4 shadow-sm ${isFullscreen
-                    ? "absolute right-4 top-1/2 z-30 w-80 -translate-y-1/2 border border-white/30 bg-black/60 text-white backdrop-blur-sm"
-                    : "border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"}`}>
-                    <p className={`text-sm font-medium ${isFullscreen ? "text-white/80" : "text-gray-500 dark:text-gray-400"}`}>{t("ui.currentPrediction")}</p>
-                    <div className="mt-3 space-y-3">
-                        {predictions.slice(0, 5).map((prediction) => (
-                            <div key={`${prediction.class_name}-${prediction.class_id}`}>
-                                <div className="flex justify-between text-sm">
-                                    <span className="font-medium">{prediction.class_name}</span>
-                                    <span>{(prediction.confidence * 100).toFixed(1)}%</span>
-                                </div>
-                                <div className="mt-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700">
-                                    <div className="h-2 rounded-full bg-blue-600" style={{ width: `${prediction.confidence * 100}%` }} />
-                                </div>
+                    <ConfidenceThresholdControl value={confidenceThreshold} onChange={setConfidenceThreshold} />
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                        <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("ui.topPrediction")}</div>
+                        <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                            {predictions[0]?.class_name ?? t("ui.noPredictions")}
+                        </div>
+                        {predictions[0] ? (
+                            <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                                {t("ui.confidence")}: {(predictions[0].confidence * 100).toFixed(1)}%
                             </div>
-                        ))}
+                        ) : null}
+                    </div>
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                        <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("ui.rankedPredictions")}</div>
+                        <div className="mt-3 space-y-3">
+                            {predictions.filter((prediction) => prediction.confidence >= confidenceThreshold).slice(0, 5).map((prediction) => (
+                                <div key={`${prediction.class_name}-${prediction.class_id}`}>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="font-medium text-gray-900 dark:text-white">{prediction.class_name}</span>
+                                        <span className="text-gray-600 dark:text-gray-300">{(prediction.confidence * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div className="mt-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700">
+                                        <div className="h-2 rounded-full bg-blue-600" style={{ width: `${prediction.confidence * 100}%` }} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={isRunning ? stopWebcam : startWebcam} className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+                            {isRunning ? t("ui.webcamStop") : t("ui.webcamStart")}
+                        </button>
+                        {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
                     </div>
                 </div>
-            </div>
-            <canvas ref={canvasRef} className="hidden" />
-            <button
-                type="button"
-                onClick={isRunning ? stopWebcam : startWebcam}
-                className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-            >
-                {isRunning ? t("ui.webcamStop") : t("ui.webcamStart")}
-            </button>
-            {error ? <p className="mt-3 text-sm text-red-600" role="alert">{error}</p> : null}
-        </div>
+            )}
+        />
     );
 };

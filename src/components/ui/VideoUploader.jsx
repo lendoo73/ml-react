@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { waitForVideoJob } from "../../services/videoJobService.js";
 
 export const VideoUploader = ({
     label = "Upload a video",
@@ -9,12 +10,15 @@ export const VideoUploader = ({
     onResult,
     onError,
     onLoadingChange,
+    onPredictionStart,
     video,
     onVideoChange,
     ariaLabel = "Upload a video in video/mp4,video/webm,video/ogg format",
     disabled = false,
+    onProgressChange,
 }) => {
     const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
     const inputRef = useRef(null);
 
     const sendVideoToAPI = useCallback(async (videoFile, url) => {
@@ -29,8 +33,16 @@ export const VideoUploader = ({
         if (!res.ok) {
             throw new Error(`HTTP ${res.status}: ${await res.text()}`);
         }
-        return res.json();
-    }, [fieldName]);
+        const response = await res.json();
+        if (response.job_id) {
+            setProgress(0);
+            return waitForVideoJob(url, response.job_id, (value) => {
+                setProgress(value);
+                onProgressChange?.(value);
+            });
+        }
+        return response;
+    }, [fieldName, onProgressChange]);
 
 
     const handleChange = useCallback(
@@ -41,6 +53,8 @@ export const VideoUploader = ({
 
             if (selected && endpoint && onResult) {
                 setLoading(true);
+                setProgress(0);
+                onPredictionStart?.();
                 onLoadingChange?.(true);
                 try {
                     const result = await sendVideoToAPI(selected, endpoint);
@@ -54,7 +68,7 @@ export const VideoUploader = ({
                 }
             }
         },
-        [endpoint, onResult, onError, onLoadingChange, onVideoChange, sendVideoToAPI]
+        [endpoint, onResult, onError, onLoadingChange, onPredictionStart, onVideoChange, sendVideoToAPI]
     );
 
     return (
@@ -89,7 +103,7 @@ export const VideoUploader = ({
                     bg-gray-800 text-gray-100
                     dark:bg-gray-200 dark:text-gray-900
                 "
-            >{loading ? "Uploading..." : buttonText}</span>
+            >{loading ? (progress > 0 ? `${progress}%` : "Uploading...") : buttonText}</span>
             {loading ? (
                 <span
                     className="mt-3 h-6 w-6 animate-spin rounded-full border-4 border-gray-400 border-t-blue-600"

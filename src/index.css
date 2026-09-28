@@ -1,2 +1,90 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: #94a3b8;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+.dark,
+.dark * {
+    scrollbar-color: #475569 transparent;
+}
+
+.dark *::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+input[type="range"] {
+    height: 6px;
+    border-radius: 9999px;
+    background: #cbd5e1;
+    accent-color: #2563eb;
+    appearance: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: #cbd5e1;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    width: 16px;
+    height: 16px;
+    margin-top: -5px;
+    border: 2px solid #ffffff;
+    border-radius: 9999px;
+    background: #2563eb;
+    appearance: none;
+}
+
+input[type="range"]::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: #cbd5e1;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 2px solid #ffffff;
+    border-radius: 9999px;
+    background: #2563eb;
+}
+
+.dark input[type="range"],
+.dark input[type="range"]::-webkit-slider-runnable-track,
+.dark input[type="range"]::-moz-range-track {
+    background: #334155;
+    color-scheme: dark;
+}
+
+.dark input[type="range"]::-webkit-slider-thumb,
+.dark input[type="range"]::-moz-range-thumb {
+    border-color: #1e293b;
+    background: #60a5fa;
+    appearance: none;
+}

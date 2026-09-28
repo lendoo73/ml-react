@@ -1,17 +1,19 @@
 ---
-applyTo: "src/services/**/*.{js,ts},src/api/**/*.{js,ts},src/features/**/services/**/*.{js,ts},src/features/**/api/**/*.{js,ts}"
-description: "API and business logic boundaries for ML inference services"
+applyTo: "src/features/**/*.{js,jsx,ts,tsx}"
+description: "Domain ownership and API/data handling within frontend features"
 ---
 
-# Frontend Service Instructions
+# Frontend Domain Feature Instructions
 
-- Put reusable HTTP communication, request construction, response normalization,
-  and API-specific business logic in services.
-- Keep services inside the owning feature when they target one ML task or model
-  family; keep shared transport helpers in `src/utils` only when domain-neutral.
+- Keep domain behavior, API request handling, and response normalization within
+  the owning feature under `src/features/<domain>/`.
+- Use feature components and hooks to organize that behavior; do not introduce a
+  separate service layer or `services`/`api` folders.
+- Keep genuinely domain-neutral infrastructure in shared locations such as
+  `src/utils` or `src/config`.
 - Read API base URLs from the existing configuration; never hardcode secrets or
   environment-specific credentials.
 - Validate file and URL inputs before sending requests and propagate meaningful
   errors to the UI.
-- Keep model endpoint differences in the model catalog or service configuration,
-  not scattered through JSX.
+- Keep model endpoint differences in the model catalog, not scattered through
+  unrelated domains.

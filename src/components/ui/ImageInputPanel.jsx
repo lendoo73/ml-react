@@ -18,9 +18,13 @@ export const ImageInputPanel = ({
     randomImageLoadingLabel,
     onRandomImage,
     onPredictionStart,
+    randomClassLabel,
+    randomClassMatched,
+    onRandomClassChange,
 }) => {
     const [isFileLoading, setIsFileLoading] = useState(false);
     const [isUrlLoading, setIsUrlLoading] = useState(false);
+    const [randomClassInputKey, setRandomClassInputKey] = useState(0);
     return (
     <div className="relative flex w-full flex-col items-center">
         <FixedSpinner loading={isFileLoading || isUrlLoading} message="Processing..." />
@@ -38,6 +42,8 @@ export const ImageInputPanel = ({
                 fieldName={model?.fileFieldName}
                 file={file}
                 onFileSelect={(nextFile) => {
+                    setRandomClassInputKey((key) => key + 1);
+                    onRandomClassChange?.("");
                     onPredictionStart?.();
                     onFileSelect?.(nextFile);
                 }}
@@ -46,6 +52,7 @@ export const ImageInputPanel = ({
                 disabled={isUrlLoading}
             />
             <UrlInput
+                key={randomClassInputKey}
                 label={model?.urlInput?.label}
                 buttonText={model?.urlInput?.buttonText}
                 placeholder={model?.urlInput?.placeholder}
@@ -63,6 +70,9 @@ export const ImageInputPanel = ({
                 exampleLoadingLabel={randomImageLoadingLabel}
                 onExampleClick={onRandomImage}
                 onPredictionStart={onPredictionStart}
+                randomClassLabel={randomClassLabel}
+                randomClassMatched={randomClassMatched}
+                onRandomClassChange={onRandomClassChange}
             />
         </div>
     </div>

@@ -1,5 +1,6 @@
 import { ImageWithAnnotations } from "./ImageWithBoxes.jsx";
 import { useRef } from "react";
+import { ApiResponseCard } from "./ApiResponseCard.jsx";
 
 export const ImagePredictionResult = ({
     image,
@@ -13,6 +14,10 @@ export const ImagePredictionResult = ({
     alt,
     responseLabel,
     imageWidth = "max-w-3xl",
+    showBoundaryToggle = false,
+    boundaryBoxesDefault = false,
+    confidenceThreshold,
+    onConfidenceThresholdChange,
 }) => {
     const resultRef = useRef(null);
 const scrollToResult = () => {
@@ -22,7 +27,7 @@ const scrollToResult = () => {
 };
 
     return (
-    <div ref={resultRef} className="mt-8 w-full border-t border-gray-200 pt-6 dark:border-gray-700">
+    <div ref={resultRef} className="w-full">
         <div className="mb-6 rounded-lg bg-blue-100 px-6 py-3 text-center text-lg font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
             {countLabel}: {count}
         </div>
@@ -36,16 +41,13 @@ const scrollToResult = () => {
                 alt={alt}
                 onImageLoad={scrollToResult}
                 width={imageWidth}
+                showBoundaryToggle={showBoundaryToggle}
+                boundaryBoxesDefault={boundaryBoxesDefault}
+                confidenceThreshold={confidenceThreshold}
+                onConfidenceThresholdChange={onConfidenceThresholdChange}
             />
         ) : null}
-        <div className="mt-6 w-full overflow-hidden rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-            <div className="rounded-lg bg-blue-100 px-6 py-3 text-center text-lg font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                {responseLabel}
-            </div>
-            <div className="max-h-64 overflow-y-auto bg-white p-4 text-sm dark:bg-gray-800">
-                <pre className="whitespace-pre-wrap break-words">{JSON.stringify(result, null, 4)}</pre>
-            </div>
-        </div>
+        <ApiResponseCard data={result} label={responseLabel} />
     </div>
     );
 };

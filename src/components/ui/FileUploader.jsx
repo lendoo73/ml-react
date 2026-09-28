@@ -16,7 +16,7 @@ export const FileUploader = ({label, buttonText, accept, endpoint, onResult, fil
             onLoadingChange?.(true);
             try {
                 const result = await sendFileToAPI(selectedFile, endpoint, fieldName);
-                onResult(result);
+                onResult(result, selectedFile);
             } catch (err) {
                 console.error(err);
             } finally {

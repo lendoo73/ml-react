@@ -9,7 +9,7 @@ semantic segmentation, and depth estimation.
 
 - Organize domain-specific code as portable feature slices under
   `src/features/<domain>/`.
-- Keep domain UI, hooks, services, utilities, and tests inside their owning feature
+- Keep domain UI, hooks, utilities, and tests inside their owning feature
   whenever they are specific to that task.
 - Keep genuinely reusable UI and infrastructure in `src/components`, `src/context`,
   `src/config`, `src/content`, and `src/utils`.
@@ -17,6 +17,12 @@ semantic segmentation, and depth estimation.
   feature folder.
 - The shared `ModelWorkspace` orchestrates model configuration and delegates
   task-specific rendering to feature components.
+- Sidebar selection swaps the right-side workspace in app state; these pages are
+  not URL routes and remain under `src/features`.
+- Each classification model has a named page component under
+  `src/features/classification/pages` (for example, `Yolo26Classification` and
+  `WeatherClassification`). Compose both from the same reusable section
+  components and pass model-specific content and callbacks through props.
 - Detection-specific behavior belongs under `src/features/detection`; classification
   behavior belongs under `src/features/classification`. Add new domains using the
   same boundary when their implementation is introduced.
@@ -29,8 +35,9 @@ semantic segmentation, and depth estimation.
   fields, result types, and display metadata in the catalog.
 - Components must not hardcode model indexes or infer API routes from array
   positions.
-- Put HTTP calls, response normalization, and API-specific business logic in a
-  domain service when a feature has more than trivial request wiring.
+- Organize API request handling and response normalization within the owning
+  domain feature, using its components and hooks where appropriate. Do not add a
+  separate service layer or `services`/`api` folders.
 - Validate user-provided files and URLs at the UI/API boundary and surface errors
   visibly; do not silently fall back to a successful-looking result.
 
@@ -43,6 +50,30 @@ semantic segmentation, and depth estimation.
   labels and behavior through explicit props.
 - Keep official models, custom-trained models, and planned model slots visually
   consistent while clearly indicating their status.
+
+## Reusable page sections
+
+Every model page is composed of these reusable sections:
+
+- Hero
+- Class preview
+- Source selector: Image, Video, Webcam
+- Input fields for the selected source
+- Response section displaying the backend prediction response
+
+Each section must be implemented as a reusable component and shared across
+domains and source types whenever the behavior is equivalent. These sections
+must use the same layout and visual styling everywhere; only their data,
+labels, and domain-specific behavior may differ. Do not copy and paste section
+markup between prediction types when a shared component can be reused.
+
+Use shared components for each section's complete visual structure, including
+its outer card, header, spacing, controls, and content container. Domain
+components should provide data and callbacks through props or composition, not
+recreate the section markup. Before changing a section, search for and extend
+the existing shared component so a style fix applies everywhere in one place.
+For response sections specifically, reuse the shared response-card component
+and allow custom response content only through its documented composition API.
 
 ## Validation
 

@@ -1,3 +1,5 @@
+import { Checkbox } from "./Checkbox.jsx";
+
 export const ClassSelector = ({
     classes,
     selectedClasses,
@@ -6,25 +8,27 @@ export const ClassSelector = ({
     onClearAll,
     onToggle,
     className = "",
+    inline = false,
 }) => (
-    <details className={`absolute bottom-3 left-3 z-10 rounded-lg bg-blue-600 px-3 py-1 text-sm text-white ${className}`}>
-        <summary className="cursor-pointer">{classes.length > 0 ? "Classes" : ""}</summary>
-        <div className="absolute bottom-full left-0 mb-2 min-w-44 rounded-lg bg-gray-800 p-3 text-gray-100 shadow-xl">
-            <div className="mb-2 flex gap-2 border-b border-gray-700 pb-2">
-                <button type="button" onClick={onSelectAll} className="text-blue-300 hover:underline">Select all</button>
-                <button type="button" onClick={onClearAll} className="text-blue-300 hover:underline">Clear all</button>
+    <details open={inline || undefined} className={`${inline ? "static w-full rounded-lg border border-gray-700 bg-gray-800 p-3 text-gray-100" : "absolute bottom-3 left-3 z-10 rounded-lg bg-blue-600 px-3 py-1 text-sm text-white"} ${className}`}>
+        <summary className={`list-none text-center font-semibold [&::-webkit-details-marker]:hidden ${inline ? "cursor-default" : "cursor-pointer"}`}>{classes.length > 0 ? "Classes" : ""}</summary>
+        <div className={`${inline ? "mt-3" : "absolute bottom-full left-0 mb-2 min-w-44"} rounded-lg bg-gray-800 p-3 text-gray-100 shadow-xl`}>
+            <div className="mb-2 flex justify-between gap-2 border-b border-gray-700 pb-2">
+                <button type="button" onClick={onSelectAll} className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">Select all</button>
+                <button type="button" onClick={onClearAll} className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">Clear all</button>
             </div>
             <div className="space-y-2">
                 {classes.map((className) => (
-                    <label key={className} className="flex cursor-pointer items-center gap-2">
-                        <input
-                            type="checkbox"
+                    <div key={className} className="flex items-center gap-2">
+                        <Checkbox
                             checked={selectedClasses.includes(className)}
                             onChange={() => onToggle(className)}
-                        />
-                        <span className="flex-1">{className}</span>
+                            className="flex-1"
+                        >
+                            <span className="flex-1">{className}</span>
+                        </Checkbox>
                         <span className="ml-4 tabular-nums text-gray-400">{counts[className] ?? 0}</span>
-                    </label>
+                    </div>
                 ))}
             </div>
         </div>

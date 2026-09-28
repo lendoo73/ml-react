@@ -1,18 +1,21 @@
 import { Camera, ExternalLink, Image as ImageIcon, Video, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { API_URL } from "../config/settings.js";
 import { useLanguage } from "../context/useLanguage.js";
-import { ClassificationResult } from "../features/classification/components/ClassificationResult.jsx";
-import { ClassificationClassSelector } from "../features/classification/components/ClassificationClassSelector.jsx";
-import { ClassificationImage } from "../features/classification/components/ClassificationImage.jsx";
-import { ClassificationVideo } from "../features/classification/components/ClassificationVideo.jsx";
-import { ClassificationWebcam } from "../features/classification/components/ClassificationWebcam.jsx";
+import { WeatherClassification } from "../features/classification/pages/weather/WeatherClassification.jsx";
+import { Yolo26Classification } from "../features/classification/pages/yolo26/Yolo26Classification.jsx";
 import { ModelPlaceholder } from "./ModelPlaceholder.jsx";
 import { PredictImage } from "../features/detection/components/PredictImage.jsx";
 import { PredictVideo } from "../features/detection/components/PredictVideo.jsx";
 import { WebcamPredictor } from "../features/detection/components/WebcamPredictor.jsx";
-import { fetchDetectionClassPreview } from "../features/detection/services/detectionService.js";
+import { useDetectionClassPreview } from "../features/detection/hooks/useDetectionClassPreview.js";
+import { PoseImage } from "../features/pose/components/PoseImage.jsx";
+import { PoseVideo } from "../features/pose/components/PoseVideo.jsx";
+import { PoseWebcam } from "../features/pose/components/PoseWebcam.jsx";
+import { PosePredictionResult } from "../features/pose/components/PosePredictionResult.jsx";
 import { SegmentationImage } from "../features/segmentation/components/SegmentationImage.jsx";
-import { fetchSegmentationClassPreview } from "../features/segmentation/services/segmentationService.js";
+import { useSegmentationClassPreview } from "../features/segmentation/hooks/useSegmentationClassPreview.js";
+import { getRandomImageUrl } from "../services/mediaService.js";
 
 const TAB_ICONS = {
     image: ImageIcon,
@@ -24,34 +27,28 @@ const getInitialTabId = (model) => model?.supportedInputs?.[0] ?? "image";
 
 export const ModelWorkspace = ({ model }) => {
     const { t } = useLanguage();
+    const fetchDetectionClassPreview = useDetectionClassPreview();
+    const fetchSegmentationClassPreview = useSegmentationClassPreview();
     const [activeTabId, setActiveTabId] = useState(getInitialTabId(model));
-    const [result, setResult] = useState(null);
-    const [isResultPending, setIsResultPending] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
     const [showClasses, setShowClasses] = useState(false);
+    const [classFilter, setClassFilter] = useState("");
     const [selectedClass, setSelectedClass] = useState("");
     const [previewUrl, setPreviewUrl] = useState("");
     const [isLoadingPreview, setIsLoadingPreview] = useState(false);
     const [previewError, setPreviewError] = useState("");
-    const [classificationPreview, setClassificationPreview] = useState(null);
+    const [posePreview, setPosePreview] = useState(null);
     const previewRef = useRef(null);
-    const resultRef = useRef(null);
-    const scrollResultIntoView = () => {
-        const element = resultRef.current;
-        if (!element) return;
-        const top = element.getBoundingClientRect().top + window.scrollY - 24;
-        window.scrollTo({ top, behavior: "smooth" });
-    };
 
     useEffect(() => {
         setActiveTabId(getInitialTabId(model));
-        setResult(null);
         setPreviewImage(null);
         setShowClasses(false);
+        setClassFilter("");
         setSelectedClass("");
         setPreviewUrl("");
         setPreviewError("");
-        setClassificationPreview(null);
+        setPosePreview(null);
     }, [model]);
 
     useEffect(() => () => {
@@ -71,10 +68,47 @@ export const ModelWorkspace = ({ model }) => {
         }))
     ), [model]);
 
-    const showClassBrowser = ["detection", "segmentation"].includes(model?.resultType)
-        && Array.isArray(model?.classes)
-        && model.classes.length > 0;
-    const showClassificationSelector = model?.resultType === "classification" && model?.endpoints?.search;
+    const poseKeypoints = model?.resultType === "pose" ? (model?.keypoints ?? []) : [];
+    const classList = model?.resultType === "pose" ? poseKeypoints : (model?.classes ?? []);
+    const filteredClassList = classList.filter((entry) => (
+        entry.toLowerCase().includes(classFilter.trim().toLowerCase())
+    ));
+    const showClassBrowser = ["detection", "segmentation", "pose"].includes(model?.resultType)
+        && Array.isArray(classList)
+        && classList.length > 0;
+    const loadRandomPosePreview = useCallback(async () => {
+        if (!model || model.resultType !== "pose") return;
+
+        setPosePreview(null);
+        setPreviewError("");
+        setIsLoadingPreview(true);
+
+        try {
+            const { url: sourceUrl, query: keyword } = await getRandomImageUrl(model);
+
+            const params = new URLSearchParams({ source: sourceUrl, output: "json" });
+            const response = await fetch(`${API_URL}/api/${model.apiPath}/${model.endpoints.image}?${params.toString()}`);
+            const result = await response.json().catch(() => null);
+            if (!response.ok) {
+                const statusMessage = result?.detail ? (Array.isArray(result.detail) ? result.detail.map((item) => item.msg).join(", ") : result.detail) : `Pose preview failed with status ${response.status}`;
+                throw new Error(statusMessage);
+            }
+
+            setPosePreview({ image: sourceUrl, keyword, result });
+        } catch (error) {
+            console.error("Unable to load pose preview:", error);
+            setPosePreview(null);
+            setPreviewError(model?.info?.previewError ?? "Unable to load the pose preview.");
+        } finally {
+            setIsLoadingPreview(false);
+        }
+    }, [model]);
+
+    useEffect(() => {
+        if (model?.resultType === "pose" && showClasses) {
+            void loadRandomPosePreview();
+        }
+    }, [loadRandomPosePreview, model?.resultType, showClasses]);
 
     const handleClassClick = async (className) => {
         if (!model?.apiPath || (!model?.endpoints?.search && !model?.previewImageUrl)) return;
@@ -111,9 +145,7 @@ export const ModelWorkspace = ({ model }) => {
         }
     };
 
-    const handleResultChange = (nextResult, nextPreviewImage = null) => {
-        setResult(nextResult);
-        setIsResultPending(false);
+    const handleResultChange = (_nextResult, nextPreviewImage = null) => {
         setPreviewImage((currentPreviewImage) => {
             if (currentPreviewImage?.startsWith?.("blob:")) {
                 URL.revokeObjectURL(currentPreviewImage);
@@ -124,15 +156,13 @@ export const ModelWorkspace = ({ model }) => {
                 : nextPreviewImage;
         });
     };
-    const clearResults = () => {
-        setIsResultPending(true);
-        setPreviewImage((currentPreviewImage) => {
-            if (currentPreviewImage?.startsWith?.("blob:")) URL.revokeObjectURL(currentPreviewImage);
-            return null;
-        });
-    };
-
     if (!model) return null;
+
+    if (model.resultType === "classification") {
+        return model.pageId === "weather"
+            ? <WeatherClassification model={model} />
+            : <Yolo26Classification model={model} />;
+    }
 
     if (model.status === "placeholder") {
         return (
@@ -166,58 +196,94 @@ export const ModelWorkspace = ({ model }) => {
                                     className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                                     aria-expanded={showClasses}
                                 >
-                                    {showClasses ? model.info.hideClasses : model.info.showClasses}
+                                    {showClasses
+                                        ? (model.resultType === "pose" ? model.info.hideKeypoints : model.info.hideClasses)
+                                        : (model.resultType === "pose" ? model.info.showKeypoints : model.info.showClasses)}
                                 </button>
                             ) : null}
                         </div>
-                        {showClassificationSelector ? (
-                            <ClassificationClassSelector
-                                model={model}
-                                onPreview={(url, className) => setClassificationPreview({ url, className })}
-                            />
-                        ) : null}
                         {showClasses ? (
-                            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-gray-200 pt-5 text-sm text-gray-700 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 dark:border-gray-700 dark:text-gray-300">
-                                {model.classes.map((className, index) => (
-                                    <button
-                                        key={className}
-                                        type="button"
-                                        onClick={() => handleClassClick(className)}
-                                        disabled={isLoadingPreview}
-                                        className={`cursor-pointer rounded-md bg-gray-100 px-2 py-1 text-left transition hover:bg-blue-100 hover:text-blue-800 disabled:cursor-wait disabled:opacity-60 dark:bg-gray-700 dark:hover:bg-blue-900 dark:hover:text-blue-100 ${selectedClass === className ? "ring-2 ring-blue-500" : ""}`}
-                                    >
-                                        {index}. {className}
-                                    </button>
-                                ))}
+                            <div className="mt-5 border-t border-gray-200 pt-5 dark:border-gray-700">
+                                <input
+                                    autoFocus
+                                    type="search"
+                                    value={classFilter}
+                                    onChange={(event) => setClassFilter(event.target.value)}
+                                    placeholder={t("ui.filterClassificationClasses")}
+                                    aria-label={t("ui.filterClassificationClasses")}
+                                    className="mb-3 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400"
+                                />
+                                <div className="grid max-h-96 grid-cols-2 gap-2 overflow-y-auto text-sm text-gray-700 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 dark:text-gray-300">
+                                {filteredClassList.map((entry) => {
+                                    const index = classList.indexOf(entry);
+                                    const isPoseKeypoint = model.resultType === "pose";
+                                    const itemKey = `${isPoseKeypoint ? "keypoint" : "class"}-${entry}`;
+
+                                    return isPoseKeypoint ? (
+                                        <div
+                                            key={itemKey}
+                                            className="rounded-md bg-gray-100 px-2 py-1 text-left dark:bg-gray-700"
+                                        >
+                                            {index}. {entry}
+                                        </div>
+                                    ) : (
+                                        <button
+                                            key={itemKey}
+                                            type="button"
+                                            onClick={() => handleClassClick(entry)}
+                                            disabled={isLoadingPreview}
+                                            className={`cursor-pointer rounded-md bg-gray-100 px-2 py-1 text-left transition hover:bg-blue-100 hover:text-blue-800 disabled:cursor-wait disabled:opacity-60 dark:bg-gray-700 dark:hover:bg-blue-900 dark:hover:text-blue-100 ${selectedClass === entry ? "ring-2 ring-blue-500" : ""}`}
+                                        >
+                                            {index}. {entry}
+                                        </button>
+                                    );
+                                })}
+                                </div>
                             </div>
                         ) : null}
                     </div>
                 ) : null}
 
-                {classificationPreview ? (
-                    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                        <div className="mb-4 flex items-center justify-between gap-4">
+                {model.resultType === "pose" && showClasses ? (
+                    <div
+                        ref={previewRef}
+                        className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
                             <h2 className="text-xl font-semibold">
-                                {t("ui.classificationRandomPreview")}: {classificationPreview.className}
+                                {model.info.randomPreviewTitle ?? "Random pose preview"}
+                                {posePreview?.keyword ? `: ${posePreview.keyword}` : ""}
                             </h2>
                             <button
                                 type="button"
-                                onClick={() => setClassificationPreview(null)}
-                                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-white"
-                                aria-label={t("ui.closePreview")}
+                                onClick={() => void loadRandomPosePreview()}
+                                disabled={isLoadingPreview}
+                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
                             >
-                                <X className="h-5 w-5" />
+                                {model.info.refreshRandomPreview ?? "Another random pose image"}
                             </button>
                         </div>
-                        <img
-                            src={classificationPreview.url}
-                            alt={`${classificationPreview.className} ${t("ui.classificationPreviewAlt")}`}
-                            className="max-h-[36rem] w-full rounded-xl bg-black object-contain"
-                        />
+                        {isLoadingPreview ? (
+                            <div className="mb-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" aria-hidden="true" />
+                                <span>{model.info.loadingPreview ?? "Loading random pose preview..."}</span>
+                            </div>
+                        ) : null}
+                        {previewError ? <p className="text-sm text-red-600 dark:text-red-300">{previewError}</p> : null}
+                        {posePreview ? (
+                            <PosePredictionResult
+                                image={posePreview.image}
+                                result={posePreview.result}
+                                countLabel={model.predictionLabel ?? "Detected poses"}
+                                showSummary={false}
+                                showToggle={false}
+                                showResponse={false}
+                            />
+                        ) : null}
                     </div>
                 ) : null}
 
-                {selectedClass ? (
+                {selectedClass && model.resultType !== "pose" ? (
                     <div
                         ref={previewRef}
                         className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
@@ -283,36 +349,30 @@ export const ModelWorkspace = ({ model }) => {
                     })}
                 </div>
 
-                <div className={activeTabId === "video" ? "" : "rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"}>
+                <div className={activeTabId === "video" || (activeTabId === "image" && ["detection", "segmentation"].includes(model.resultType)) ? "" : "rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"}>
                     {activeTabId === "image" ? (
-                        model.resultType === "classification"
-                            ? <ClassificationImage model={model} onChange={handleResultChange} onPredictionStart={clearResults} />
-                            : model.resultType === "segmentation"
-                                ? <SegmentationImage model={model} onChange={handleResultChange} onPredictionStart={clearResults} />
-                            : <PredictImage model={model} onChange={handleResultChange} onPredictionStart={clearResults} previewImage={previewImage} />
+                        model.resultType === "segmentation"
+                            ? <SegmentationImage model={model} onChange={handleResultChange} />
+                            : model.resultType === "pose"
+                                ? <PoseImage model={model} onChange={handleResultChange} />
+                                : <PredictImage model={model} onChange={handleResultChange} previewImage={previewImage} />
                     ) : null}
                     {activeTabId === "video" ? (
                         model.supportedInputs.includes("video")
-                            ? model.resultType === "classification"
-                                ? <ClassificationVideo model={model} onChange={handleResultChange} />
+                            ? model.resultType === "pose"
+                                ? <PoseVideo model={model} onChange={handleResultChange} />
                                 : <PredictVideo model={model} />
                             : <p className="text-sm text-gray-500 dark:text-gray-400">{t("ui.modeUnavailable")}</p>
                     ) : null}
                     {activeTabId === "webcam" ? (
                         model.supportedInputs.includes("webcam")
-                            ? model.resultType === "classification"
-                                ? <ClassificationWebcam model={model} onChange={handleResultChange} />
+                            ? model.resultType === "pose"
+                                ? <PoseWebcam model={model} />
                                 : <WebcamPredictor model={model} isSegmentation={model.resultType === "segmentation"} />
                             : <p className="text-sm text-gray-500 dark:text-gray-400">{t("ui.modeUnavailable")}</p>
                     ) : null}
                 </div>
 
-                {model.resultType === "classification" && activeTabId === "image" && (result || previewImage) ? (
-                    <div ref={resultRef} className={`rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition dark:border-gray-700 dark:bg-gray-800 ${isResultPending ? "pointer-events-none select-none opacity-40 blur-sm" : ""}`}>
-                        <ClassificationResult image={previewImage} result={result} onImageLoad={scrollResultIntoView} />
-                        <JsonPanel result={result} />
-                    </div>
-                ) : null}
             </div>
         </section>
     );
@@ -360,24 +420,5 @@ const HeroSection = ({ model }) => {
             ) : null}
         </div>
     </div>
-    );
-};
-
-const JsonPanel = ({ result }) => {
-    const { t } = useLanguage();
-
-    if (!result) return null;
-
-    return (
-        <div className="mt-6 w-full rounded-lg overflow-hidden border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-            <div className="rounded-lg bg-blue-100 px-6 py-3 text-center text-lg font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                {t("ui.apiResponse")}
-            </div>
-            <div className="max-h-64 overflow-y-auto bg-white p-4 text-sm dark:bg-gray-800">
-                <pre className="whitespace-pre-wrap break-words">
-                    {JSON.stringify(result, null, 4)}
-                </pre>
-            </div>
-        </div>
     );
 };
