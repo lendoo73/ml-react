@@ -13,7 +13,7 @@ export const ThemeToggle = () => {
         <button
             onClick={() => setIsDark(!isDark)}
             className="
-                fixed bottom-6 right-6 z-50
+                fixed bottom-6 right-6 z-50 cursor-pointer
                 bg-white text-gray-700 shadow-md rounded-full p-3 transition-all
                 dark:bg-gray-800 dark:text-gray-200
                 hover:shadow-lg

@@ -1,4 +1,5 @@
-import { Checkbox } from "./Checkbox.jsx";
+import { ClassColorRow } from "./ClassColorRow.jsx";
+import { getAnnotationColor } from "../../utils/getAnnotationColor.js";
 
 export const ClassSelector = ({
     classes,
@@ -19,16 +20,14 @@ export const ClassSelector = ({
             </div>
             <div className="space-y-2">
                 {classes.map((className) => (
-                    <div key={className} className="flex items-center gap-2">
-                        <Checkbox
-                            checked={selectedClasses.includes(className)}
-                            onChange={() => onToggle(className)}
-                            className="flex-1"
-                        >
-                            <span className="flex-1">{className}</span>
-                        </Checkbox>
-                        <span className="ml-4 tabular-nums text-gray-400">{counts[className] ?? 0}</span>
-                    </div>
+                    <ClassColorRow
+                        key={className}
+                        className={className}
+                        checked={selectedClasses.includes(className)}
+                        count={counts[className] ?? 0}
+                        colors={getAnnotationColor(className)}
+                        onChange={() => onToggle(className)}
+                    />
                 ))}
             </div>
         </div>

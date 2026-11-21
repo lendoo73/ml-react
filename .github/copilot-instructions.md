@@ -29,15 +29,42 @@ semantic segmentation, and depth estimation.
 
 ## Model catalog and API boundaries
 
-- Define official, custom-trained, and future placeholder models through the
-  configuration-driven catalog in `src/content/translations.js`.
-- Preserve stable model identifiers and keep task capabilities, endpoints, input
-  fields, result types, and display metadata in the catalog.
+- Keep `src/content/translations/` limited to user-facing, locale-dependent text.
+  Do not store API paths, endpoint names, input capabilities, result types,
+  feature flags, class/query lookup data, asset paths, or link URLs in translation
+  files.
+- Keep stable model identifiers as translation keys, and define nonlocalized
+  model behavior in the owning feature's page where it is consumed. Page- or
+  model-specific fixed values—including classes, endpoint names and paths,
+  image assets, lookup/query data, metadata, and model settings—belong directly
+  in that page file for easy debugging. Follow the approach used by neighboring
+  pages; keep each file focused on its responsibility and do not create separate
+  settings, config, custom, or data files/modules solely to hold values for one
+  page.
+- Translation files are only for translating visible user-facing copy. Do not
+  put settings or other nonlocalized model/page data in translations. The page
+  owns displaying and orchestrating its model-specific data; translations own
+  the localized text shown to the user.
+- Only use configuration for values intentionally adjustable by environment,
+  deployment, or user choice. Keep fixed invariant values directly in the
+  owning page rather than introducing configuration files or modules solely to
+  collect them.
+- Keep visible model names, labels, descriptions, and other localized copy in the
+  English and French translation files.
 - Components must not hardcode model indexes or infer API routes from array
   positions.
 - Organize API request handling and response normalization within the owning
   domain feature, using its components and hooks where appropriate. Do not add a
   separate service layer or `services`/`api` folders.
+- Before adding or changing API endpoints or request/response handling, consult
+  the backend OpenAPI documentation at `http://127.0.0.1:8000/api/redoc` or
+  `http://127.0.0.1:8000/api/openapi.json`. For new model endpoints, inspect
+  that endpoint's documented method, inputs, and response schema; do not assume
+  its contract matches a similar page or call it by copying another page's
+  request pattern. When useful, make a non-interactive request (for example,
+  with `curl`) to inspect a real response and understand its shape. If the docs
+  or backend are not reachable, ask the developer to start the backend server;
+  do not guess the API contract.
 - Validate user-provided files and URLs at the UI/API boundary and surface errors
   visibly; do not silently fall back to a successful-looking result.
 
@@ -51,32 +78,12 @@ semantic segmentation, and depth estimation.
 - Keep official models, custom-trained models, and planned model slots visually
   consistent while clearly indicating their status.
 
-## Reusable page sections
-
-Every model page is composed of these reusable sections:
-
-- Hero
-- Class preview
-- Source selector: Image, Video, Webcam
-- Input fields for the selected source
-- Response section displaying the backend prediction response
-
-Each section must be implemented as a reusable component and shared across
-domains and source types whenever the behavior is equivalent. These sections
-must use the same layout and visual styling everywhere; only their data,
-labels, and domain-specific behavior may differ. Do not copy and paste section
-markup between prediction types when a shared component can be reused.
-
-Use shared components for each section's complete visual structure, including
-its outer card, header, spacing, controls, and content container. Domain
-components should provide data and callbacks through props or composition, not
-recreate the section markup. Before changing a section, search for and extend
-the existing shared component so a style fix applies everywhere in one place.
-For response sections specifically, reuse the shared response-card component
-and allow custom response content only through its documented composition API.
 
 ## Validation
 
+- Never execute interactive shell commands or commands that prompt for input. Use only
+  non-interactive commands when terminal work is explicitly needed; do not clear the
+  user's terminal or launch interactive command-line interfaces.
 - Use the existing commands after code changes:
   - `npm run lint`
   - `npm run build`

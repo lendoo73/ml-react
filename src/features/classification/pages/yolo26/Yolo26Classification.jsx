@@ -10,6 +10,7 @@ import { useClassificationWorkspace } from "../../hooks/useClassificationWorkspa
 
 const YOLO26_CLASSIFICATION_CONFIG = {
     apiPath: "classification",
+    apiModel: "yolo26x-cls",
     classSourceUrl: "https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt",
     endpoints: {
         image: "predict",

@@ -64,11 +64,19 @@ export const RandomPrediction = ({
                             <X className="h-5 w-5" />
                         </button>
                     </div>
-                    <img
-                        src={preview.url}
-                        alt={`${preview.className} ${t("ui.classificationPreviewAlt")}`}
-                        className="max-h-[36rem] w-full rounded-xl bg-black object-contain"
-                    />
+                    <a
+                        href={preview.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={t("ui.openOriginalImage")}
+                        className="block cursor-pointer"
+                    >
+                        <img
+                            src={preview.url}
+                            alt={`${preview.className} ${t("ui.classificationPreviewAlt")}`}
+                            className="max-h-[36rem] w-full rounded-xl bg-black object-contain"
+                        />
+                    </a>
                 </div>
             ) : null}
         </>

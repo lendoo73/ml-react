@@ -9,9 +9,11 @@ import { SourceInput } from "../../components/sections/SourceInput.jsx";
 import { useRandomClassImage } from "../../hooks/useRandomClassImage.js";
 import { useClassificationWorkspace } from "../../hooks/useClassificationWorkspace.js";
 import weatherEvaluationCsv from "./evaluation/results.csv?raw";
+import { confusionMatrixData } from "./evaluation/confusionMatrixData.js";
 
 const WEATHER_CLASSIFICATION_CONFIG = {
-    apiPath: "classification/weather",
+    apiPath: "classification",
+    apiModel: "weather",
     classes: ["cloudy", "foggy", "rainy", "shine", "sunrise"],
     classSearchQueries: {
         cloudy: "cloudy weather",
@@ -76,6 +78,7 @@ export const WeatherClassification = ({ model }) => {
                 csvData={weatherEvaluationCsv}
                 maxEpochs={pageModel.maxTrainingEpochs}
                 tensorBoardUrl={pageModel.tensorBoardUrl}
+                confusionMatrixData={confusionMatrixData}
             />
             <SourceCards
                 sources={pageModel.supportedInputs.map((id) => ({

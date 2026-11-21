@@ -13,11 +13,17 @@ export const ImagePredictionResult = ({
     hideLabel,
     alt,
     responseLabel,
-    imageWidth = "max-w-3xl",
+    imageWidth = "max-w-none w-full",
     showBoundaryToggle = false,
+    showOrientedBoxToggle = false,
     boundaryBoxesDefault = false,
     confidenceThreshold,
     onConfidenceThresholdChange,
+    showResponse = true,
+    scrollToResultOnImageLoad = true,
+    imageFooter,
+    availableClasses,
+    showClassesPanel = false,
 }) => {
     const resultRef = useRef(null);
 const scrollToResult = () => {
@@ -39,15 +45,19 @@ const scrollToResult = () => {
                 showLabel={showLabel}
                 hideLabel={hideLabel}
                 alt={alt}
-                onImageLoad={scrollToResult}
+                onImageLoad={scrollToResultOnImageLoad ? scrollToResult : undefined}
                 width={imageWidth}
                 showBoundaryToggle={showBoundaryToggle}
+                showOrientedBoxToggle={showOrientedBoxToggle}
                 boundaryBoxesDefault={boundaryBoxesDefault}
                 confidenceThreshold={confidenceThreshold}
                 onConfidenceThresholdChange={onConfidenceThresholdChange}
+                imageFooter={imageFooter}
+                availableClasses={availableClasses}
+                showClassesPanel={showClassesPanel}
             />
         ) : null}
-        <ApiResponseCard data={result} label={responseLabel} />
+        {showResponse ? <ApiResponseCard data={result} label={responseLabel} /> : null}
     </div>
     );
 };

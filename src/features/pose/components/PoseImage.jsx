@@ -6,7 +6,7 @@ import { getRandomImageUrl } from "../../../services/mediaService.js";
 import { PosePredictionResult } from "./PosePredictionResult.jsx";
 import { sendFileToAPI } from "../../../utils/fileApi.js";
 
-export const PoseImage = ({ model, onChange, onPredictionStart }) => {
+export const PoseImage = ({ model, previewSearchTerms, onChange, onPredictionStart }) => {
     const { t } = useLanguage();
     const [result, setResult] = useState(null);
     const [file, setFile] = useState(null);
@@ -14,9 +14,8 @@ export const PoseImage = ({ model, onChange, onPredictionStart }) => {
     const [confidenceThreshold, setConfidenceThreshold] = useState(0.5);
     const [isPredictionPending, setIsPredictionPending] = useState(false);
     const sourceRef = useRef(null);
-    const endpointBase = `${API_URL}/api/${model.apiPath}`;
-    const fileEndpoint = `${endpointBase}/${model.endpoints.image}`;
-    const urlEndpoint = `${endpointBase}/${model.endpoints.url}`;
+    const fileEndpoint = `${API_URL}/api/pose_estimation/predict`;
+    const urlEndpoint = `${API_URL}/api/pose_estimation/predict`;
     const handleSourcePredictionStart = () => {
         setConfidenceThreshold(0.5);
         setIsPredictionPending(true);
@@ -25,7 +24,7 @@ export const PoseImage = ({ model, onChange, onPredictionStart }) => {
     const rerunPrediction = async (nextThreshold) => {
         setIsPredictionPending(true);
         if (file) {
-            const nextResult = await sendFileToAPI(file, `${fileEndpoint}?conf=${nextThreshold}`, model.fileFieldName);
+            const nextResult = await sendFileToAPI(file, `${fileEndpoint}?conf=${nextThreshold}`, "source");
             handleResult(nextResult, file, "file");
             return;
         }
@@ -66,6 +65,7 @@ export const PoseImage = ({ model, onChange, onPredictionStart }) => {
                     }}
                     fileEndpoint={fileEndpoint}
                     urlEndpoint={urlEndpoint}
+                    queryParamName="source"
                     onResult={(nextResult, sourceUrl) => handleResult(
                         nextResult,
                         sourceRef.current instanceof File ? sourceRef.current : sourceUrl ?? sourceRef.current,
@@ -73,7 +73,7 @@ export const PoseImage = ({ model, onChange, onPredictionStart }) => {
                     )}
                     randomImageLabel={t("ui.randomImage")}
                     randomImageLoadingLabel={t("ui.loadingRandomImage")}
-                    onRandomImage={() => getRandomImageUrl(model)}
+                    onRandomImage={() => getRandomImageUrl(model, previewSearchTerms)}
                     randomClassLabel={t("ui.randomImageQuery")}
                     randomClassMatched={Array.isArray(result) && result.length > 0}
                     onPredictionStart={handleSourcePredictionStart}

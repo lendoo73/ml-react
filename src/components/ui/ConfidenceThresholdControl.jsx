@@ -2,7 +2,7 @@ import { Minus, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../../context/useLanguage.js";
 
-export const ConfidenceThresholdControl = ({ value, onChange }) => {
+export const ConfidenceThresholdControl = ({ value, onChange, label, debounceMs = 1000 }) => {
     const { t } = useLanguage();
     const [pendingValue, setPendingValue] = useState(value);
 
@@ -12,20 +12,24 @@ export const ConfidenceThresholdControl = ({ value, onChange }) => {
 
     useEffect(() => {
         if (pendingValue === value) return undefined;
+        if (debounceMs <= 0) {
+            onChange(pendingValue);
+            return undefined;
+        }
 
         const timeoutId = window.setTimeout(() => {
             onChange(pendingValue);
-        }, 1000);
+        }, debounceMs);
 
         return () => window.clearTimeout(timeoutId);
-    }, [onChange, pendingValue, value]);
+    }, [debounceMs, onChange, pendingValue, value]);
 
     const updateValue = (nextValue) => setPendingValue(Math.min(1, Math.max(0, nextValue)));
 
     return (
         <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="mb-2 flex items-center justify-between gap-2 text-sm font-semibold">
-                <span>{t("image.confidenceThreshold")}</span>
+                <span>{label ?? t("image.confidenceThreshold")}</span>
                 <span className="tabular-nums text-gray-500 dark:text-gray-400">
                     {Math.round(pendingValue * 100)}%
                 </span>

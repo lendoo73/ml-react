@@ -1,9 +1,10 @@
-import { Camera, Image as ImageIcon, Video } from "lucide-react";
+import { Camera, Image as ImageIcon, Layers, Video } from "lucide-react";
 
 const SOURCE_ICONS = {
     image: ImageIcon,
     video: Video,
     webcam: Camera,
+    patientScan: Layers,
 };
 
 export const SourceCards = ({ sources = [], selectedSourceId, onSelect }) => {
@@ -18,7 +19,7 @@ export const SourceCards = ({ sources = [], selectedSourceId, onSelect }) => {
                         key={id}
                         type="button"
                         onClick={() => onSelect(id)}
-                        className={`w-full max-w-[17rem] rounded-2xl border px-5 py-4 text-left transition ${
+                        className={`w-full max-w-68 cursor-pointer rounded-2xl border px-5 py-4 text-left transition ${
                             isSelected
                                 ? "border-blue-600 bg-blue-600 text-white shadow-lg"
                                 : "border-gray-200 bg-white text-gray-800 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-blue-500 dark:hover:bg-gray-700"

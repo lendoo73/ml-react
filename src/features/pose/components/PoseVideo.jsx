@@ -8,8 +8,25 @@ import { API_URL } from "../../../config/settings.js";
 import { FixedSpinner } from "../../../components/ui/FixedSpinner.jsx";
 import { getRandomVideoUrl } from "../../../services/mediaService.js";
 import { PosePredictionResult } from "./PosePredictionResult.jsx";
+import { TrackingControls } from "../../../components/ui/TrackingControls.jsx";
 
-export const PoseVideo = ({ model, onChange, onPredictionStart }) => {
+export const PoseVideo = ({
+    model,
+    previewSearchTerms,
+    onChange,
+    onPredictionStart,
+    angles,
+    renderFrameContent,
+    defaultSelectedKeypoints,
+    defaultShowLabels,
+    defaultShowConfidence,
+    counterVisibility,
+    onCounterVisibilityChange,
+    counterLabels,
+    counterPersonLabel,
+    transformResult,
+    apiResponseTooltip,
+}) => {
     const { t } = useLanguage();
     const [videoFile, setVideoFile] = useState(null);
     const [fileVideoUrl, setFileVideoUrl] = useState("");
@@ -18,12 +35,16 @@ export const PoseVideo = ({ model, onChange, onPredictionStart }) => {
     const [currentFrame, setCurrentFrame] = useState(null);
     const [syncEnabled, setSyncEnabled] = useState(false);
     const [isPredicting, setIsPredicting] = useState(false);
+    const [error, setError] = useState("");
     const [videoProgress, setVideoProgress] = useState(0);
     const [confidenceThreshold, setConfidenceThreshold] = useState(0.5);
+    const [tracking, setTracking] = useState(false);
+    const [tracker, setTracker] = useState("bytetrack");
+    const [showIds, setShowIds] = useState(true);
+    const [annotationSession, setAnnotationSession] = useState(0);
     const videoRef = useRef(null);
     const fileVideoUrlRef = useRef("");
-    const endpointBase = `${API_URL}/api/${model.apiPath}`;
-    const fileEndpoint = `${endpointBase}/${model.endpoints.video}`;
+    const fileEndpoint = `${API_URL}/api/pose_estimation/predict/video`;
     const urlEndpoint = fileEndpoint;
     const videoSource = videoFile ? fileVideoUrl : videoUrl;
 
@@ -39,12 +60,18 @@ export const PoseVideo = ({ model, onChange, onPredictionStart }) => {
         if (fileVideoUrlRef.current) URL.revokeObjectURL(fileVideoUrlRef.current);
     }, []);
 
+    const queryParams = angles
+        ? { angles: JSON.stringify(angles), output: "json" }
+        : { tracking: String(tracking), tracker };
+
     const handleResult = (nextResult, source) => {
         const frames = Array.isArray(nextResult) ? nextResult : [];
-        setResult(frames);
-        setCurrentFrame(frames[0] ?? null);
+        const processedFrames = transformResult ? transformResult(frames) : frames;
+        setError("");
+        setResult(processedFrames);
+        setCurrentFrame(processedFrames[0] ?? null);
         setConfidenceThreshold(0.5);
-        onChange?.(frames, source ?? (videoFile ?? videoUrl));
+        onChange?.(processedFrames, source ?? (videoFile ?? videoUrl));
     };
 
     useEffect(() => {
@@ -101,23 +128,39 @@ export const PoseVideo = ({ model, onChange, onPredictionStart }) => {
                     progress={videoProgress}
                 />
                 <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    {angles ? null : (
+                        <TrackingControls
+                            tracking={tracking}
+                            onTrackingChange={setTracking}
+                            tracker={tracker}
+                            onTrackerChange={setTracker}
+                            disabled={isPredicting}
+                        />
+                    )}
                     <div className="flex w-full flex-col items-center gap-4">
                         <VideoUploader
                             label={model?.mode?.video?.uploadLabel}
                             buttonText={model?.mode?.video?.chooseVideo}
                             endpoint={fileEndpoint}
-                            fieldName={model?.videoFieldName ?? "source"}
+                            fieldName="source"
                             video={videoFile}
                             onVideoChange={(nextFile) => {
                                 handleVideoFileChange(nextFile);
+                                setError("");
                                 if (nextFile) setVideoUrl("");
                                 setResult(null);
                                 setCurrentFrame(null);
                                 onPredictionStart?.();
                             }}
+                            onError={setError}
+                            onPredictionStart={() => {
+                                setError("");
+                                setAnnotationSession((session) => session + 1);
+                            }}
                             onResult={(nextResult) => handleResult(nextResult, videoFile)}
                             onLoadingChange={setIsPredicting}
                             onProgressChange={setVideoProgress}
+                            queryParams={queryParams}
                         />
                         <UrlInput
                             label={model?.videoUrlInput?.label}
@@ -131,24 +174,34 @@ export const PoseVideo = ({ model, onChange, onPredictionStart }) => {
                                 setCurrentFrame(null);
                             }}
                             endpoint={urlEndpoint}
-                            queryParamName={model?.videoUrlInput?.queryParamName ?? "source"}
-                            queryParams={model?.urlQueryParams ?? {}}
+                            queryParamName="source"
+                            queryParams={{ ...(model?.urlQueryParams ?? {}), ...queryParams }}
                             inputId={`${model?.id ?? "model"}-video-url`}
                             onResult={(nextResult, sourceUrl) => handleResult(nextResult, sourceUrl ?? videoUrl)}
-                            onPredictionStart={onPredictionStart}
+                            onPredictionStart={() => {
+                                setError("");
+                                setAnnotationSession((session) => session + 1);
+                                onPredictionStart?.();
+                            }}
                             onLoadingChange={setIsPredicting}
                             onProgressChange={setVideoProgress}
                             exampleLabel={t("ui.randomVideo")}
                             exampleLoadingLabel={t("ui.loadingRandomVideo")}
                             randomClassLabel={t("ui.randomPersonVideo")}
                             randomClassMatched={Array.isArray(result) && result.some((frame) => frame?.poses?.length > 0)}
-                            onExampleClick={() => getRandomVideoUrl(model)}
+                            onExampleClick={() => getRandomVideoUrl(model, previewSearchTerms)}
                             mediaType="video"
                         />
+                        {error ? <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p> : null}
                     </div>
                 </div>
                 {videoSource ? (
                     <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                        {renderFrameContent?.({
+                            frame: currentFrame,
+                            index: result?.indexOf(currentFrame) ?? -1,
+                            frames: result,
+                        })}
                         <PosePredictionResult
                             video={videoSource}
                             onVideoElement={(element) => {
@@ -160,6 +213,20 @@ export const PoseVideo = ({ model, onChange, onPredictionStart }) => {
                             confidenceThreshold={confidenceThreshold}
                             onConfidenceThresholdChange={setConfidenceThreshold}
                             keypointLabels={model.keypoints}
+                            showIds={showIds}
+                            annotationSession={annotationSession}
+                            trackingEnabled={angles ? true : tracking}
+                            onShowIdsChange={setShowIds}
+                            defaultSelectedKeypoints={defaultSelectedKeypoints}
+                            defaultShowLabels={defaultShowLabels}
+                            defaultShowConfidence={defaultShowConfidence}
+                            counterMetrics={currentFrame?.poses
+                                ?.filter((pose) => pose?.bicepCurlMetrics)
+                                .map((pose) => ({ trackId: pose.track_id, ...pose.bicepCurlMetrics }))}
+                            counterVisibility={counterVisibility}
+                            onCounterVisibilityChange={onCounterVisibilityChange}
+                            counterLabels={counterLabels}
+                            counterPersonLabel={counterPersonLabel}
                         />
                     </div>
                 ) : null}
@@ -167,9 +234,11 @@ export const PoseVideo = ({ model, onChange, onPredictionStart }) => {
                     <VideoApiResponseCard
                         frames={result}
                         currentFrame={currentFrame}
+                        videoRef={videoRef}
                         syncEnabled={syncEnabled}
                         onSyncChange={(event) => setSyncEnabled(event.target.checked)}
                         apiResponseLabel={t("ui.apiResponse")}
+                        apiResponseTooltip={apiResponseTooltip}
                         syncLabel={t("ui.syncVideoFrame")}
                         onSelectFrame={selectFrame}
                     />

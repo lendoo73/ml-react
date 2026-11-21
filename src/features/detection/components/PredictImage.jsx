@@ -1,27 +1,39 @@
 import { ImageInputPanel } from "../../../components/ui/ImageInputPanel.jsx";
 import { ImagePredictionResult } from "../../../components/ui/ImagePredictionResult.jsx";
 import { useLanguage } from "../../../context/useLanguage.js";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_URL } from "../../../config/settings.js";
 import { getRandomImageUrl } from "../../../services/mediaService.js";
 import { sendFileToAPI } from "../../../utils/fileApi.js";
+import { useDetectionClassPreview } from "../hooks/useDetectionClassPreview.js";
 
-const VALIDATION_URL = "https://github.com/lendoo73/passenger-counter/tree/main/datasets/valid/images";
+const normalizeClassName = (className) => String(className ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 
-export const PredictImage = ({ model, onChange, onPredictionStart, initialMode = "image" }) => {
+export const PredictImage = ({
+    model,
+    onChange,
+    onPredictionStart,
+    onPredictionPending,
+    onPredictionControlsReady,
+    randomMediaSearchTerms,
+    showPredictionResult = true,
+}) => {
     const [result, setResult] = useState(null);
     const [resultImage, setResultImage] = useState(null);
     const [file, setFile] = useState(null);
     const [imgUrl, setImgUrl] = useState("");
-    const [inputMode, setInputMode] = useState(initialMode);
+    const [inputMode, setInputMode] = useState("image");
     const [confidenceThreshold, setConfidenceThreshold] = useState(0.5);
     const [randomClass, setRandomClass] = useState("");
     const [isPredictionPending, setIsPredictionPending] = useState(false);
 
     const { t } = useLanguage();
-    const endpointBase = model?.apiPath ? `${API_URL}/api/${model.apiPath}` : "";
-    const fileEndpoint = model?.endpoints?.image ? `${endpointBase}/${model.endpoints.image}` : "";
-    const urlEndpoint = model?.endpoints?.url ? `${endpointBase}/${model.endpoints.url}` : "";
+    const fetchClassPreview = useDetectionClassPreview();
+    const endpointBase = `${API_URL}/api/${model.apiPath ?? "object_detection"}`;
+    const fileEndpoint = `${endpointBase}/predict`;
+    const urlEndpoint = `${endpointBase}/predict`;
     const detectionCount = useMemo(() => {
         if (model?.resultType === "classification") {
             if (Array.isArray(result)) return result.length;
@@ -31,18 +43,36 @@ export const PredictImage = ({ model, onChange, onPredictionStart, initialMode =
 
         return Array.isArray(result) ? result.length : 0;
     }, [model?.resultType, result]);
-    const hasTrainingInfo = Boolean(model?.trainingInfo);
+    const randomClassMatched = useMemo(() => {
+        if (!randomClass) return undefined;
+        const normalizedRandomClass = normalizeClassName(randomClass);
+        const matchingClass = Object.entries(model.classSearchQueries ?? {}).find(([className, searchQuery]) => (
+            normalizeClassName(className) === normalizedRandomClass
+            || normalizeClassName(searchQuery) === normalizedRandomClass
+        ))?.[0];
+        const expectedClasses = new Set([
+            normalizedRandomClass,
+            ...(matchingClass ? [normalizeClassName(matchingClass)] : []),
+        ]);
+        const detections = Array.isArray(result)
+            ? result
+            : Array.isArray(result?.detections) ? result.detections : [];
+
+        return detections.some((detection) => expectedClasses.has(
+            normalizeClassName(detection.class_name ?? detection.class),
+        ));
+    }, [model.classSearchQueries, randomClass, result]);
     const handleSourcePredictionStart = () => {
         setConfidenceThreshold(0.5);
         setIsPredictionPending(true);
         onPredictionStart?.();
     };
-    const rerunPrediction = async (nextThreshold) => {
+    const rerunPrediction = useCallback(async (nextThreshold) => {
         setIsPredictionPending(true);
-        onPredictionStart?.();
-        const params = new URLSearchParams({ conf: String(nextThreshold) });
+        onPredictionPending?.();
+        const params = new URLSearchParams({ conf: String(nextThreshold), model: model.apiModel ?? "yolo26x" });
         if (file) {
-            const nextResult = await sendFileToAPI(file, `${fileEndpoint}?${params.toString()}`, model.fileFieldName);
+            const nextResult = await sendFileToAPI(file, `${fileEndpoint}?${params.toString()}`, "source");
             setResult(nextResult);
             setIsPredictionPending(false);
             onChange?.(nextResult, file);
@@ -52,6 +82,7 @@ export const PredictImage = ({ model, onChange, onPredictionStart, initialMode =
             const response = await fetch(`${urlEndpoint}?${new URLSearchParams({
                 source: imgUrl,
                 conf: String(nextThreshold),
+                model: model.apiModel ?? "yolo26x",
             }).toString()}`);
             const nextResult = await response.json();
             if (!response.ok) throw new Error(nextResult?.detail ?? "Detection prediction failed.");
@@ -59,7 +90,11 @@ export const PredictImage = ({ model, onChange, onPredictionStart, initialMode =
             setIsPredictionPending(false);
             onChange?.(nextResult, imgUrl);
         }
-    };
+    }, [file, fileEndpoint, imgUrl, model.apiModel, onChange, onPredictionPending, urlEndpoint]);
+
+    useEffect(() => {
+        onPredictionControlsReady?.(rerunPrediction);
+    }, [onPredictionControlsReady, rerunPrediction]);
 
     const handleFileSelect = (f) => {
         setInputMode("image");
@@ -77,61 +112,18 @@ export const PredictImage = ({ model, onChange, onPredictionStart, initialMode =
     };
 
     const handleUrlResult = (r, sourceUrl) => {
+        const resolvedSourceUrl = sourceUrl ?? imgUrl;
         setInputMode("url");
         setFile(null);
+        setImgUrl(resolvedSourceUrl);
         setResult(r);
-        setResultImage(sourceUrl ?? imgUrl);
+        setResultImage(resolvedSourceUrl);
         setIsPredictionPending(false);
-        onChange?.(r, sourceUrl ?? imgUrl);
+        onChange?.(r, resolvedSourceUrl);
     };
 
     return (
         <>
-            {hasTrainingInfo ? (
-                <div
-                        className="
-                        w-full max-w-2xl
-                        border border-blue-200 dark:border-blue-800
-                        bg-blue-50/60 dark:bg-blue-950/50
-                        rounded-lg p-4
-                        "
-                    role="note"
-                    aria-label={model.trainingInfo.title}
-                >
-                    <div className="flex items-start gap-3">
-                        <div
-                            className="
-                                mt-1 h-6 w-6 flex items-center justify-center
-                                rounded-full bg-blue-100 text-blue-800
-                                dark:bg-blue-900 dark:text-blue-200
-                                font-bold
-                            "
-                            aria-hidden="true"
-                            title="Info"
-                        ></div>
-                        <div className="text-sm leading-6">
-                            <p className="font-semibold mb-1">{model.trainingInfo.title}</p>
-                            <p className="text-gray-700 dark:text-gray-300">{model.trainingInfo.body}</p>
-                            <p className="mt-3">
-                                <a
-                                    href={VALIDATION_URL}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="
-                                        inline-flex items-center gap-2
-                                        text-blue-600 dark:text-blue-300
-                                        underline hover:no-underline
-                                    "
-                                    aria-label={model.trainingInfo.validationLinkAria}
-                                >
-                                    <span>📦</span>
-                                    <span>{model.trainingInfo.validationLink}</span>
-                                </a>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
 
             <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <ImageInputPanel
@@ -147,26 +139,35 @@ export const PredictImage = ({ model, onChange, onPredictionStart, initialMode =
                     }}
                     fileEndpoint={fileEndpoint}
                     urlEndpoint={urlEndpoint}
+                    fileFieldName="source"
+                    queryParamName="source"
+                    queryParams={{
+                        model: model.apiModel ?? "yolo26x",
+                        ...(model.id === "yolo26-detect-official" ? { output: "json" } : {}),
+                    }}
                     onResult={(result, sourceUrl) => (
                         inputMode === "image" ? handleFileResult(result, sourceUrl) : handleUrlResult(result, sourceUrl)
                     )}
                     randomImageLabel={t("ui.randomImage")}
                     randomImageLoadingLabel={t("ui.loadingRandomImage")}
                     randomClassLabel={t("ui.randomClass")}
-                    onRandomImage={() => getRandomImageUrl(model)}
+                    onRandomImage={async () => {
+                        const configuredClasses = randomMediaSearchTerms?.filter(Boolean);
+                        const availableClasses = configuredClasses?.length
+                            ? configuredClasses
+                            : model.classes?.filter(Boolean) ?? [];
+                        if (!availableClasses.length) return getRandomImageUrl(model, randomMediaSearchTerms);
+
+                        const className = availableClasses[Math.floor(Math.random() * availableClasses.length)];
+                        handleSourcePredictionStart();
+                        return fetchClassPreview(model, className, "json");
+                    }}
                     onRandomClassChange={setRandomClass}
-                    randomClassMatched={randomClass
-                        ? (Array.isArray(result) ? result : []).some((detection) => (
-                            String(detection.class_name ?? detection.class ?? "")
-                                .toLowerCase()
-                                .replace(/[_-]+/g, " ")
-                                .trim() === randomClass.toLowerCase().replace(/[_-]+/g, " ").trim()
-                        ))
-                        : undefined}
+                    randomClassMatched={randomClassMatched}
                     onPredictionStart={handleSourcePredictionStart}
                 />
             </div>
-            {result && model?.resultType !== "classification" ? (
+            {showPredictionResult && result && model?.resultType !== "classification" ? (
                 <div className={`mt-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition dark:border-gray-700 dark:bg-gray-800 ${isPredictionPending ? "pointer-events-none select-none opacity-40 blur-sm" : ""}`}>
                     <ImagePredictionResult
                         image={resultImage}

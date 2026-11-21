@@ -10,7 +10,7 @@ export const navigation = [
                     items: [
                         {
                             id: "yolo26-classify-official",
-                            name: "YOLO26 Classification",
+                            name: "Classification",
                             iconKey: "yolo26",
                             iconSrc: "/logos/yolo26-logo.svg",
                             activeIconSrc: "/logos/yolo26-logo-active.svg",
@@ -21,6 +21,12 @@ export const navigation = [
                             iconKey: "weather",
                             iconSrc: "/logos/weather-logo.svg",
                         },
+                        {
+                            id: "classification-chest-xray-custom",
+                            name: "Classificateur de radiographies thoraciques",
+                            iconKey: "chestXray",
+                            iconSrc: "/logos/covid-19.svg",
+                        },
                     ],
                 },
                 {
@@ -29,13 +35,28 @@ export const navigation = [
                     items: [
                         {
                             id: "yolo26-detect-official",
-                            name: "YOLO26 Officiel",
-                            iconKey: "detection",
+                            name: "Détection",
+                            iconKey: "yolo26",
+                            iconSrc: "/logos/yolo26-logo.svg",
+                            activeIconSrc: "/logos/yolo26-logo-active.svg",
                         },
                         {
-                            id: "detection-custom-placeholder",
-                            name: "Emplacement modèle custom",
-                            iconKey: "customModel",
+                            id: "person-counter-custom",
+                            name: "Compteur d’objets",
+                            iconKey: "pose",
+                            iconSrc: "/logos/counter.png",
+                        },
+                        {
+                            id: "detection-road-sign",
+                            name: "Détection des panneaux routiers",
+                            iconKey: "detection",
+                            iconSrc: "/logos/road-sign-logo.svg",
+                        },
+                        {
+                            id: "detection-face-mask",
+                            name: "Détection des masques",
+                            iconKey: "faceMask",
+                            iconSrc: "/logos/face-mask.png",
                         },
                     ],
                 },
@@ -45,8 +66,20 @@ export const navigation = [
                     items: [
                         {
                             id: "segmentation-placeholder",
-                            name: "Modèle de segmentation",
+                            name: "Segmentation YOLO26",
+                            iconKey: "yolo26",
+                            iconSrc: "/logos/yolo26-logo.svg",
+                            activeIconSrc: "/logos/yolo26-logo-active.svg",
+                        },
+                        {
+                            id: "segmentation-brain-tumor",
+                            name: "Segmentation de tumeurs cérébrales",
                             iconKey: "segmentation",
+                        },
+                        {
+                            id: "segmentation-pothole",
+                            name: "Segmentation des nids-de-poule",
+                            iconKey: "pothole",
                         },
                     ],
                 },
@@ -56,8 +89,46 @@ export const navigation = [
                     items: [
                         {
                             id: "yolo26-pose-official",
-                            name: "YOLO26 Pose",
+                            name: "Pose",
+                            iconKey: "yolo26",
+                            iconSrc: "/logos/yolo26-logo.svg",
+                            activeIconSrc: "/logos/yolo26-logo-active.svg",
+                        },
+                        {
+                            id: "bicep-curl-counter-custom",
+                            name: "Compteur de flexions des biceps",
                             iconKey: "pose",
+                            iconSrc: "/logos/muscles.png",
+                        },
+                    ],
+                },
+                {
+                    id: "obb",
+                    name: "Boîtes orientées",
+                    items: [
+                        {
+                            id: "yolo26-obb-official",
+                            name: "YOLO26 Officiel",
+                            iconKey: "yolo26",
+                            iconSrc: "/logos/yolo26-logo.svg",
+                            activeIconSrc: "/logos/yolo26-logo-active.svg",
+                        },
+                        {
+                            id: "obb-car-parking-lot-custom",
+                            name: "Comptage des voitures du parking",
+                            iconKey: "car",
+                        },
+                    ],
+                },
+                {
+                    id: "multi-model",
+                    name: "Multi-modèle",
+                    items: [
+                        {
+                            id: "knife-attack-detection",
+                            name: "Détection d’attaque au couteau",
+                            iconKey: "detection",
+                            iconSrc: "/logos/knife-attack-logo.png",
                         },
                     ],
                 },

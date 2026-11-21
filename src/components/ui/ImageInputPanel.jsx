@@ -12,6 +12,9 @@ export const ImageInputPanel = ({
     setImageUrl,
     fileEndpoint,
     urlEndpoint,
+    fileFieldName,
+    queryParamName,
+    queryParams,
     onResult,
     showHeader = true,
     randomImageLabel,
@@ -21,6 +24,7 @@ export const ImageInputPanel = ({
     randomClassLabel,
     randomClassMatched,
     onRandomClassChange,
+    loadingLabel,
 }) => {
     const [isFileLoading, setIsFileLoading] = useState(false);
     const [isUrlLoading, setIsUrlLoading] = useState(false);
@@ -39,7 +43,8 @@ export const ImageInputPanel = ({
                 buttonText={model?.mode?.image?.chooseFile}
                 accept="image/png,image/jpeg,image/webp"
                 endpoint={fileEndpoint}
-                fieldName={model?.fileFieldName}
+                fieldName={fileFieldName ?? model?.fileFieldName ?? "source"}
+                queryParams={queryParams ?? model?.urlQueryParams ?? {}}
                 file={file}
                 onFileSelect={(nextFile) => {
                     setRandomClassInputKey((key) => key + 1);
@@ -59,8 +64,8 @@ export const ImageInputPanel = ({
                 imgUrl={imageUrl}
                 setImgUrl={setImageUrl}
                 endpoint={urlEndpoint}
-                queryParamName={model?.queryParamName ?? "img_url"}
-                queryParams={model?.urlQueryParams ?? {}}
+                queryParamName={queryParamName ?? model?.queryParamName ?? "img_url"}
+                queryParams={queryParams ?? model?.urlQueryParams ?? {}}
                 inputId={`${model?.id ?? "model"}-image-url`}
                 onResult={onResult}
                 onLoadingChange={setIsUrlLoading}
@@ -68,6 +73,7 @@ export const ImageInputPanel = ({
                 mediaType="image"
                 exampleLabel={randomImageLabel}
                 exampleLoadingLabel={randomImageLoadingLabel}
+                loadingLabel={loadingLabel}
                 onExampleClick={onRandomImage}
                 onPredictionStart={onPredictionStart}
                 randomClassLabel={randomClassLabel}

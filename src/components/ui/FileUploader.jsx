@@ -1,9 +1,10 @@
 import { useState } from "react";
 import {sendFileToAPI} from "../../utils/fileApi.js";
 import { useLanguage } from "../../context/useLanguage.js";
+import { appendQueryParams } from "../../utils/appendQueryParams.js";
 
 
-export const FileUploader = ({label, buttonText, accept, endpoint, onResult, file, onFileSelect, onLoadingChange, disabled = false, fieldName = "image"}) => {
+export const FileUploader = ({label, buttonText, accept, endpoint, onResult, file, onFileSelect, onLoadingChange, disabled = false, fieldName = "image", queryParams = {}}) => {
     const [loading, setLoading] = useState(false);
     const { t } = useLanguage();
 
@@ -15,7 +16,9 @@ export const FileUploader = ({label, buttonText, accept, endpoint, onResult, fil
             setLoading(true);
             onLoadingChange?.(true);
             try {
-                const result = await sendFileToAPI(selectedFile, endpoint, fieldName);
+                const requestUrl = new URL(endpoint, window.location.href);
+                appendQueryParams(requestUrl.searchParams, queryParams);
+                const result = await sendFileToAPI(selectedFile, requestUrl, fieldName);
                 onResult(result, selectedFile);
             } catch (err) {
                 console.error(err);

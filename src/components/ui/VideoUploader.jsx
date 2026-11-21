@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { waitForVideoJob } from "../../services/videoJobService.js";
+import { appendQueryParams } from "../../utils/appendQueryParams.js";
 
 export const VideoUploader = ({
     label = "Upload a video",
@@ -16,6 +17,10 @@ export const VideoUploader = ({
     ariaLabel = "Upload a video in video/mp4,video/webm,video/ogg format",
     disabled = false,
     onProgressChange,
+    queryParams = {},
+    formFields = {},
+    validateFile,
+    loadingLabel = "Uploading...",
 }) => {
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -24,8 +29,17 @@ export const VideoUploader = ({
     const sendVideoToAPI = useCallback(async (videoFile, url) => {
         const formData = new FormData();
         formData.append(fieldName, videoFile);
+        Object.entries(formFields).forEach(([name, value]) => {
+            if (Array.isArray(value)) {
+                value.forEach((item) => formData.append(name, String(item)));
+                return;
+            }
+            if (value != null) formData.append(name, String(value));
+        });
 
-        const res = await fetch(url, {
+        const requestUrl = new URL(url, window.location.href);
+        appendQueryParams(requestUrl.searchParams, queryParams);
+        const res = await fetch(requestUrl, {
             method: "POST",
             body: formData,
         });
@@ -42,12 +56,19 @@ export const VideoUploader = ({
             });
         }
         return response;
-    }, [fieldName, onProgressChange]);
+    }, [fieldName, formFields, onProgressChange, queryParams]);
 
 
     const handleChange = useCallback(
         async (e) => {
             const selected = e.target.files?.[0] || null;
+            const validationError = selected ? validateFile?.(selected) : "";
+            if (validationError) {
+                onVideoChange?.(null);
+                onError?.(validationError);
+                e.target.value = "";
+                return;
+            }
             onVideoChange?.(selected);
             e.target.value = "";
 
@@ -68,7 +89,7 @@ export const VideoUploader = ({
                 }
             }
         },
-        [endpoint, onResult, onError, onLoadingChange, onPredictionStart, onVideoChange, sendVideoToAPI]
+        [endpoint, onResult, onError, onLoadingChange, onPredictionStart, onVideoChange, sendVideoToAPI, validateFile]
     );
 
     return (
@@ -103,7 +124,7 @@ export const VideoUploader = ({
                     bg-gray-800 text-gray-100
                     dark:bg-gray-200 dark:text-gray-900
                 "
-            >{loading ? (progress > 0 ? `${progress}%` : "Uploading...") : buttonText}</span>
+            >{loading ? (progress > 0 ? `${progress}%` : loadingLabel) : buttonText}</span>
             {loading ? (
                 <span
                     className="mt-3 h-6 w-6 animate-spin rounded-full border-4 border-gray-400 border-t-blue-600"

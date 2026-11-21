@@ -5,9 +5,32 @@ import { useLanguage } from "../../../context/useLanguage.js";
 import { API_URL } from "../../../config/settings.js";
 import { getRandomImageUrl } from "../../../services/mediaService.js";
 import { sendFileToAPI } from "../../../utils/fileApi.js";
+import { useSegmentationClassPreview } from "../hooks/useSegmentationClassPreview.js";
+
+const normalizeClassName = (className) => String(className ?? "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .trim();
+
+const getConfiguredClassCode = (className, classCodes = {}) => (
+    Object.entries(classCodes).find(([name]) => (
+        normalizeClassName(name) === normalizeClassName(className)
+    ))?.[1]
+);
+
+const matchesSelectedClass = (segmentation, selectedClass, classCodes) => {
+    const predictedClass = segmentation.class_name ?? segmentation.class;
+    const selectedCode = getConfiguredClassCode(selectedClass, classCodes);
+    const predictedCode = getConfiguredClassCode(predictedClass, classCodes);
+
+    return selectedCode && predictedCode
+        ? selectedCode === predictedCode
+        : normalizeClassName(predictedClass) === normalizeClassName(selectedClass);
+};
 
 export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
     const { t } = useLanguage();
+    const fetchSegmentationClassPreview = useSegmentationClassPreview();
     const [result, setResult] = useState(null);
     const [file, setFile] = useState(null);
     const [imageUrl, setImageUrl] = useState("");
@@ -15,7 +38,7 @@ export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
     const [randomClass, setRandomClass] = useState("");
     const [isPredictionPending, setIsPredictionPending] = useState(false);
     const sourceRef = useRef(null);
-    const endpoint = `${API_URL}/api/${model.apiPath}/${model.endpoints.image}`;
+    const endpoint = `${API_URL}/api/${model.apiPath ?? "segmentation"}/predict`;
     const segmentations = Array.isArray(result) ? result : [];
     const handleSourcePredictionStart = () => {
         setConfidenceThreshold(0.5);
@@ -27,14 +50,18 @@ export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
         if (file) {
             const nextResult = await sendFileToAPI(
                 file,
-                `${endpoint}?conf=${nextThreshold}`,
-                model.fileFieldName
+                `${endpoint}?${new URLSearchParams({ conf: String(nextThreshold), model: model.apiModel ?? "yolo26x-seg" })}`,
+                "source"
             );
             handleResult(nextResult, file, "file");
             return;
         }
         if (imageUrl) {
-            const response = await fetch(`${endpoint}?source=${encodeURIComponent(imageUrl)}&conf=${nextThreshold}`);
+            const response = await fetch(`${endpoint}?${new URLSearchParams({
+                source: imageUrl,
+                conf: String(nextThreshold),
+                model: model.apiModel ?? "yolo26x-seg",
+            })}`);
             const nextResult = await response.json();
             if (!response.ok) throw new Error(nextResult?.detail ?? "Segmentation prediction failed.");
             handleResult(nextResult, imageUrl, "url");
@@ -45,8 +72,21 @@ export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
         setResult(nextResult);
         setIsPredictionPending(false);
         onChange?.(nextResult, source);
-        if (sourceType === "file") setImageUrl("");
-        if (sourceType === "url") setFile(null);
+        if (sourceType === "file") {
+            setFile(source);
+            setImageUrl("");
+            sourceRef.current = source;
+        }
+        if (sourceType === "url") {
+            setFile(null);
+            sourceRef.current = source;
+        }
+    };
+    const handleInputResult = (nextResult, source) => {
+        const predictionSource = source instanceof File
+            ? source
+            : sourceRef.current instanceof File ? sourceRef.current : source ?? sourceRef.current;
+        handleResult(nextResult, predictionSource, predictionSource instanceof File ? "file" : "url");
     };
 
     return (
@@ -70,18 +110,21 @@ export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
                 }}
                 fileEndpoint={endpoint}
                 urlEndpoint={endpoint}
-                onResult={(nextResult, sourceUrl) => handleResult(nextResult, sourceRef.current instanceof File ? sourceRef.current : sourceUrl ?? sourceRef.current, sourceRef.current instanceof File ? "file" : "url")}
+                queryParamName="source"
+                queryParams={{ model: model.apiModel ?? "yolo26x-seg" }}
+                onResult={handleInputResult}
                 randomImageLabel={t("ui.randomImage")}
                 randomImageLoadingLabel={t("ui.loadingRandomImage")}
                 randomClassLabel={t("ui.randomClass")}
-                onRandomImage={() => getRandomImageUrl(model)}
+                onRandomImage={() => model.testImageDirectory
+                    ? fetchSegmentationClassPreview(model, null, { output: "json" })
+                    : getRandomImageUrl(model)}
                 onRandomClassChange={setRandomClass}
                 randomClassMatched={randomClass
-                    ? segmentations.some((segmentation) => (
-                        String(segmentation.class_name ?? segmentation.class ?? "")
-                            .toLowerCase()
-                            .replace(/[_-]+/g, " ")
-                            .trim() === randomClass.toLowerCase().replace(/[_-]+/g, " ").trim()
+                    ? segmentations.some((segmentation) => matchesSelectedClass(
+                        segmentation,
+                        randomClass,
+                        model.testImageClassCodes
                     ))
                     : undefined}
                 onPredictionStart={handleSourcePredictionStart}

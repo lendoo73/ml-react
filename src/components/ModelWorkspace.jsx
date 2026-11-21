@@ -3,7 +3,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_URL } from "../config/settings.js";
 import { useLanguage } from "../context/useLanguage.js";
 import { WeatherClassification } from "../features/classification/pages/weather/WeatherClassification.jsx";
+import { ChestXrayClassification } from "../features/classification/pages/chest_xray/ChestXrayClassification.jsx";
 import { Yolo26Classification } from "../features/classification/pages/yolo26/Yolo26Classification.jsx";
+import { Yolo26Detection } from "../features/detection/pages/yolo26/Yolo26Detection.jsx";
+import { Yolo26Obb } from "../features/obb/pages/yolo26/Yolo26Obb.jsx";
+import { CarParkingLotObb } from "../features/obb/pages/car_parking_lot/CarParkingLotObb.jsx";
+import { RoadSignDetection } from "../features/detection/pages/road_sign/RoadSignDetection.jsx";
+import { FaceMaskDetection } from "../features/detection/pages/face_mask/FaceMaskDetection.jsx";
+import { ObjectCounter } from "../features/detection/pages/object_counter/ObjectCounter.jsx";
+import { Yolo26Pose } from "../features/pose/pages/yolo26/Yolo26Pose.jsx";
+import { BicepCurlCounter } from "../features/pose/pages/bicep_curl/BicepCurlCounter.jsx";
 import { ModelPlaceholder } from "./ModelPlaceholder.jsx";
 import { PredictImage } from "../features/detection/components/PredictImage.jsx";
 import { PredictVideo } from "../features/detection/components/PredictVideo.jsx";
@@ -14,8 +23,12 @@ import { PoseVideo } from "../features/pose/components/PoseVideo.jsx";
 import { PoseWebcam } from "../features/pose/components/PoseWebcam.jsx";
 import { PosePredictionResult } from "../features/pose/components/PosePredictionResult.jsx";
 import { SegmentationImage } from "../features/segmentation/components/SegmentationImage.jsx";
+import { BrainTumorSegmentation } from "../features/segmentation/pages/brain_tumor/BrainTumorSegmentation.jsx";
+import { PotholeSegmentation } from "../features/segmentation/pages/pothole/PotholeSegmentation.jsx";
+import { Yolo26Segmentation } from "../features/segmentation/pages/yolo26/Yolo26Segmentation.jsx";
 import { useSegmentationClassPreview } from "../features/segmentation/hooks/useSegmentationClassPreview.js";
 import { getRandomImageUrl } from "../services/mediaService.js";
+import { KnifeAttackDetection } from "../features/multi_model/pages/knife_attack/KnifeAttackDetection.jsx";
 
 const TAB_ICONS = {
     image: ImageIcon,
@@ -23,9 +36,47 @@ const TAB_ICONS = {
     webcam: Camera,
 };
 
-const getInitialTabId = (model) => model?.supportedInputs?.[0] ?? "image";
+const getSupportedInputs = (model) => (
+    model?.id === "yolo26-pose-official" ? ["image", "video", "webcam"] : model?.supportedInputs ?? []
+);
+const getInitialTabId = (model) => getSupportedInputs(model)[0] ?? "image";
+const POSE_PREVIEW_SEARCH_TERMS = [
+    "African person", "Asian person", "astronaut", "athlete", "basketball player", "biker",
+    "child", "children", "chimpanzees", "crowd", "dancer", "elderly person", "family", "fitness",
+    "football player", "gorillas", "group exercise", "group of people", "gymnast", "hiker",
+    "horse rider", "humanoid robot", "hunter", "Indian person", "industrial worker", "Japanese person",
+    "Japanese woman", "jogger", "knight", "Latin American person", "man", "marathon runner",
+    "Middle Eastern person", "Native American person", "orangutans", "people", "person",
+    "person with arm prosthesis", "person with leg prosthesis", "person with prosthetic arm",
+    "person with prosthetic leg", "runner", "scooter rider", "skater", "soccer", "soccer player",
+    "soldier", "statue human", "street performer", "tennis player", "walking people", "warehouse worker",
+    "woman", "worker", "workers", "yoga", "yoga pose",
+];
 
 export const ModelWorkspace = ({ model }) => {
+    if (model?.id === "knife-attack-detection") {
+        return <KnifeAttackDetection model={model} />;
+    }
+    if (model?.id === "person-counter-custom") {
+        return <ObjectCounter model={model} />;
+    }
+    if (model?.id === "bicep-curl-counter-custom") {
+        return <BicepCurlCounter model={model} />;
+    }
+    if (model?.id === "yolo26-pose-official") {
+        return <Yolo26Pose model={model} />;
+    }
+    if (model?.id === "yolo26-obb-official") {
+        return <Yolo26Obb model={model} />;
+    }
+    if (model?.id === "obb-car-parking-lot-custom") {
+        return <CarParkingLotObb model={model} />;
+    }
+
+    return <ModelWorkspaceContent model={model} />;
+};
+
+const ModelWorkspaceContent = ({ model }) => {
     const { t } = useLanguage();
     const fetchDetectionClassPreview = useDetectionClassPreview();
     const fetchSegmentationClassPreview = useSegmentationClassPreview();
@@ -35,6 +86,7 @@ export const ModelWorkspace = ({ model }) => {
     const [classFilter, setClassFilter] = useState("");
     const [selectedClass, setSelectedClass] = useState("");
     const [previewUrl, setPreviewUrl] = useState("");
+    const [previewSourceUrl, setPreviewSourceUrl] = useState("");
     const [isLoadingPreview, setIsLoadingPreview] = useState(false);
     const [previewError, setPreviewError] = useState("");
     const [posePreview, setPosePreview] = useState(null);
@@ -47,6 +99,7 @@ export const ModelWorkspace = ({ model }) => {
         setClassFilter("");
         setSelectedClass("");
         setPreviewUrl("");
+        setPreviewSourceUrl("");
         setPreviewError("");
         setPosePreview(null);
     }, [model]);
@@ -60,7 +113,7 @@ export const ModelWorkspace = ({ model }) => {
     }, [previewImage]);
 
     const supportedTabs = useMemo(() => (
-        (model?.supportedInputs ?? []).map((inputId) => ({
+        getSupportedInputs(model).map((inputId) => ({
             id: inputId,
             icon: TAB_ICONS[inputId],
             name: model?.mode?.[inputId]?.name ?? inputId,
@@ -68,26 +121,27 @@ export const ModelWorkspace = ({ model }) => {
         }))
     ), [model]);
 
-    const poseKeypoints = model?.resultType === "pose" ? (model?.keypoints ?? []) : [];
-    const classList = model?.resultType === "pose" ? poseKeypoints : (model?.classes ?? []);
+    const resultType = model?.id === "yolo26-pose-official" ? "pose" : model?.resultType;
+    const poseKeypoints = resultType === "pose" ? (model?.keypoints ?? []) : [];
+    const classList = resultType === "pose" ? poseKeypoints : (model?.classes ?? []);
     const filteredClassList = classList.filter((entry) => (
         entry.toLowerCase().includes(classFilter.trim().toLowerCase())
     ));
-    const showClassBrowser = ["detection", "segmentation", "pose"].includes(model?.resultType)
+    const showClassBrowser = ["detection", "segmentation", "pose"].includes(resultType)
         && Array.isArray(classList)
         && classList.length > 0;
     const loadRandomPosePreview = useCallback(async () => {
-        if (!model || model.resultType !== "pose") return;
+        if (!model || resultType !== "pose") return;
 
         setPosePreview(null);
         setPreviewError("");
         setIsLoadingPreview(true);
 
         try {
-            const { url: sourceUrl, query: keyword } = await getRandomImageUrl(model);
+            const { url: sourceUrl, query: keyword } = await getRandomImageUrl(model, POSE_PREVIEW_SEARCH_TERMS);
 
             const params = new URLSearchParams({ source: sourceUrl, output: "json" });
-            const response = await fetch(`${API_URL}/api/${model.apiPath}/${model.endpoints.image}?${params.toString()}`);
+            const response = await fetch(`${API_URL}/api/pose_estimation/predict?${params.toString()}`);
             const result = await response.json().catch(() => null);
             if (!response.ok) {
                 const statusMessage = result?.detail ? (Array.isArray(result.detail) ? result.detail.map((item) => item.msg).join(", ") : result.detail) : `Pose preview failed with status ${response.status}`;
@@ -102,13 +156,13 @@ export const ModelWorkspace = ({ model }) => {
         } finally {
             setIsLoadingPreview(false);
         }
-    }, [model]);
+    }, [model, resultType]);
 
     useEffect(() => {
-        if (model?.resultType === "pose" && showClasses) {
+        if (resultType === "pose" && showClasses) {
             void loadRandomPosePreview();
         }
-    }, [loadRandomPosePreview, model?.resultType, showClasses]);
+    }, [loadRandomPosePreview, resultType, showClasses]);
 
     const handleClassClick = async (className) => {
         if (!model?.apiPath || (!model?.endpoints?.search && !model?.previewImageUrl)) return;
@@ -121,24 +175,27 @@ export const ModelWorkspace = ({ model }) => {
         });
 
         try {
-            if (model.resultType === "segmentation") {
-                const imageBlob = await fetchSegmentationClassPreview(model, className);
-                const nextPreviewUrl = URL.createObjectURL(imageBlob);
+            if (resultType === "segmentation") {
+                const { blob, sourceUrl } = await fetchSegmentationClassPreview(model, className);
+                const nextPreviewUrl = URL.createObjectURL(blob);
                 setPreviewUrl((currentPreviewUrl) => {
                     if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
                     return nextPreviewUrl;
                 });
+                setPreviewSourceUrl(sourceUrl);
                 return;
             }
-            const imageBlob = await fetchDetectionClassPreview(model, className);
-            const nextPreviewUrl = URL.createObjectURL(imageBlob);
+            const { blob, sourceUrl } = await fetchDetectionClassPreview(model, className);
+            const nextPreviewUrl = URL.createObjectURL(blob);
             setPreviewUrl((currentPreviewUrl) => {
                 if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
                 return nextPreviewUrl;
             });
+            setPreviewSourceUrl(sourceUrl);
         } catch (error) {
             console.error("Unable to load class preview:", error);
             setPreviewUrl("");
+            setPreviewSourceUrl("");
             setPreviewError(model?.info?.previewError ?? "");
         } finally {
             setIsLoadingPreview(false);
@@ -158,10 +215,39 @@ export const ModelWorkspace = ({ model }) => {
     };
     if (!model) return null;
 
-    if (model.resultType === "classification") {
-        return model.pageId === "weather"
-            ? <WeatherClassification model={model} />
-            : <Yolo26Classification model={model} />;
+    if (model.id === "classification-weather-custom") {
+        return <WeatherClassification model={model} />;
+    }
+
+    if (model.id === "classification-chest-xray-custom") {
+        return <ChestXrayClassification model={model} />;
+    }
+
+    if (model.id === "yolo26-classify-official") {
+        return <Yolo26Classification model={model} />;
+    }
+
+    if (model.id === "detection-face-mask") {
+        return <FaceMaskDetection model={model} />;
+    }
+
+    if (["yolo26-detect-official", "detection-road-sign"].includes(model.id)) {
+        return model.id === "detection-road-sign"
+            ? <RoadSignDetection model={model} />
+            : <Yolo26Detection model={model} />;
+    }
+
+
+    if (model.id === "segmentation-placeholder") {
+        return <Yolo26Segmentation model={model} />;
+    }
+
+    if (model.id === "segmentation-brain-tumor") {
+        return <BrainTumorSegmentation model={model} />;
+    }
+
+    if (model.id === "segmentation-pothole") {
+        return <PotholeSegmentation model={model} />;
     }
 
     if (model.status === "placeholder") {
@@ -197,8 +283,8 @@ export const ModelWorkspace = ({ model }) => {
                                     aria-expanded={showClasses}
                                 >
                                     {showClasses
-                                        ? (model.resultType === "pose" ? model.info.hideKeypoints : model.info.hideClasses)
-                                        : (model.resultType === "pose" ? model.info.showKeypoints : model.info.showClasses)}
+                                        ? (resultType === "pose" ? model.info.hideKeypoints : model.info.hideClasses)
+                                        : (resultType === "pose" ? model.info.showKeypoints : model.info.showClasses)}
                                 </button>
                             ) : null}
                         </div>
@@ -216,7 +302,7 @@ export const ModelWorkspace = ({ model }) => {
                                 <div className="grid max-h-96 grid-cols-2 gap-2 overflow-y-auto text-sm text-gray-700 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 dark:text-gray-300">
                                 {filteredClassList.map((entry) => {
                                     const index = classList.indexOf(entry);
-                                    const isPoseKeypoint = model.resultType === "pose";
+                                    const isPoseKeypoint = resultType === "pose";
                                     const itemKey = `${isPoseKeypoint ? "keypoint" : "class"}-${entry}`;
 
                                     return isPoseKeypoint ? (
@@ -244,7 +330,7 @@ export const ModelWorkspace = ({ model }) => {
                     </div>
                 ) : null}
 
-                {model.resultType === "pose" && showClasses ? (
+                {resultType === "pose" && showClasses ? (
                     <div
                         ref={previewRef}
                         className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
@@ -273,6 +359,7 @@ export const ModelWorkspace = ({ model }) => {
                         {posePreview ? (
                             <PosePredictionResult
                                 image={posePreview.image}
+                                imageLink={posePreview.image}
                                 result={posePreview.result}
                                 countLabel={model.predictionLabel ?? "Detected poses"}
                                 showSummary={false}
@@ -283,7 +370,7 @@ export const ModelWorkspace = ({ model }) => {
                     </div>
                 ) : null}
 
-                {selectedClass && model.resultType !== "pose" ? (
+                {selectedClass && resultType !== "pose" ? (
                     <div
                         ref={previewRef}
                         className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
@@ -297,6 +384,7 @@ export const ModelWorkspace = ({ model }) => {
                                 onClick={() => {
                                     setSelectedClass("");
                                     setPreviewUrl("");
+                                    setPreviewSourceUrl("");
                                     setPreviewError("");
                                 }}
                                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-white"
@@ -313,13 +401,19 @@ export const ModelWorkspace = ({ model }) => {
                         ) : null}
                         {previewError ? <p className="text-sm text-red-600 dark:text-red-300">{previewError}</p> : null}
                         {previewUrl ? (
-                            <div className="relative">
+                            <a
+                                href={previewSourceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={t("ui.openOriginalImage")}
+                                className="relative block cursor-pointer"
+                            >
                                 <img
                                     src={previewUrl}
                                     alt={`${selectedClass} ${model.info.previewAlt}`}
                                     className={`max-h-[36rem] w-full rounded-xl bg-black object-contain transition ${isLoadingPreview ? "blur-sm opacity-60" : ""}`}
                                 />
-                            </div>
+                            </a>
                         ) : null}
                     </div>
                 ) : null}
@@ -349,26 +443,26 @@ export const ModelWorkspace = ({ model }) => {
                     })}
                 </div>
 
-                <div className={activeTabId === "video" || (activeTabId === "image" && ["detection", "segmentation"].includes(model.resultType)) ? "" : "rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"}>
+                <div className={activeTabId === "video" || (activeTabId === "image" && ["detection", "segmentation"].includes(resultType)) ? "" : "rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"}>
                     {activeTabId === "image" ? (
-                        model.resultType === "segmentation"
+                        resultType === "segmentation"
                             ? <SegmentationImage model={model} onChange={handleResultChange} />
-                            : model.resultType === "pose"
-                                ? <PoseImage model={model} onChange={handleResultChange} />
+                            : resultType === "pose"
+                                ? <PoseImage model={model} previewSearchTerms={POSE_PREVIEW_SEARCH_TERMS} onChange={handleResultChange} />
                                 : <PredictImage model={model} onChange={handleResultChange} previewImage={previewImage} />
                     ) : null}
                     {activeTabId === "video" ? (
-                        model.supportedInputs.includes("video")
-                            ? model.resultType === "pose"
-                                ? <PoseVideo model={model} onChange={handleResultChange} />
+                        getSupportedInputs(model).includes("video")
+                            ? resultType === "pose"
+                                ? <PoseVideo model={model} previewSearchTerms={POSE_PREVIEW_SEARCH_TERMS} onChange={handleResultChange} />
                                 : <PredictVideo model={model} />
                             : <p className="text-sm text-gray-500 dark:text-gray-400">{t("ui.modeUnavailable")}</p>
                     ) : null}
                     {activeTabId === "webcam" ? (
-                        model.supportedInputs.includes("webcam")
-                            ? model.resultType === "pose"
+                        getSupportedInputs(model).includes("webcam")
+                            ? resultType === "pose"
                                 ? <PoseWebcam model={model} />
-                                : <WebcamPredictor model={model} isSegmentation={model.resultType === "segmentation"} />
+                                : <WebcamPredictor model={model} isSegmentation={resultType === "segmentation"} />
                             : <p className="text-sm text-gray-500 dark:text-gray-400">{t("ui.modeUnavailable")}</p>
                     ) : null}
                 </div>
@@ -379,6 +473,10 @@ export const ModelWorkspace = ({ model }) => {
 };
 
 const HeroSection = ({ model }) => {
+    const isPose = model.id === "yolo26-pose-official";
+    const heroImage = isPose ? "/images/pose_estimation-sample.jpg" : model.hero.image;
+    const heroImageHref = isPose ? "https://docs.ultralytics.com/tasks/pose/" : model.hero.imageHref;
+
     return (
     <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-700 px-8 py-10 text-white shadow-xl">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:justify-between">
@@ -391,7 +489,13 @@ const HeroSection = ({ model }) => {
                         {model.links.map(({ id, href, label }) => (
                             <a
                                 key={id}
-                                href={href}
+                                href={isPose
+                                    ? id === "docs"
+                                        ? "https://docs.ultralytics.com/tasks/pose/"
+                                        : id === "github"
+                                            ? "https://github.com/ultralytics/ultralytics"
+                                            : "https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/coco8-pose.yaml"
+                                    : href}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="inline-flex items-center gap-2 rounded-lg border border-white/30 bg-white/10 px-3 py-2 text-sm text-white transition hover:bg-white/20"
@@ -403,16 +507,16 @@ const HeroSection = ({ model }) => {
                     </div>
                 ) : null}
             </div>
-            {model.hero.image ? (
+            {heroImage ? (
                 <a
-                    href={model.hero.imageHref}
+                    href={heroImageHref}
                     target="_blank"
                     rel="noreferrer"
                     className="relative block shrink-0 self-center p-1 transition hover:scale-[1.02] focus:outline-none lg:-my-6 lg:-mr-4"
                     aria-label={model.hero.imageLinkLabel ?? model.hero.title}
                 >
                     <img
-                        src={model.hero.image}
+                        src={heroImage}
                         alt={model.hero.imageAlt ?? model.hero.title}
                         className="block h-auto min-h-36 w-full rounded-2xl border border-white/40 object-contain shadow-lg lg:min-h-0 lg:w-80"
                     />

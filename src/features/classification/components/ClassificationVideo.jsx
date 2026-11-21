@@ -9,6 +9,7 @@ import { FixedSpinner } from "../../../components/ui/FixedSpinner.jsx";
 import { getRandomVideoUrl } from "../../../services/mediaService.js";
 import { PredictionResultLayout } from "../../../components/ui/PredictionResultLayout.jsx";
 import { ConfidenceThresholdControl } from "../../../components/ui/ConfidenceThresholdControl.jsx";
+import { FullscreenMediaLayout } from "../../../components/ui/FullscreenMediaLayout.jsx";
 
 export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseChange }) => {
     const { t } = useLanguage();
@@ -25,8 +26,8 @@ export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseC
     const [syncEnabled, setSyncEnabled] = useState(false);
     const videoRef = useRef(null);
     const containerRef = useRef(null);
-    const endpoint = `${API_URL}/api/${model.apiPath}/${model.endpoints.video}`;
-    const videoUrlEndpoint = `${API_URL}/api/${model.apiPath}/predict/video`;
+    const endpoint = `${API_URL}/api/${model.apiPath ?? "classification"}/predict/video`;
+    const videoUrlEndpoint = endpoint;
     const [randomClass, setRandomClass] = useState("");
     const normalizedRandomClass = randomClass.toLowerCase().replace(/[_-]+/g, " ").trim();
     const selectFrame = useCallback((frame, index) => {
@@ -55,6 +56,7 @@ export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseC
         onVideoResponseChange?.({
             frames,
             currentFrame,
+            videoRef,
             onSelectFrame: selectFrame,
             syncEnabled,
             onSyncChange: handleSyncChange,
@@ -93,6 +95,7 @@ export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseC
                     label={model.mode.video.uploadLabel}
                     buttonText={model.mode.video.chooseVideo}
                     endpoint={endpoint}
+                    queryParams={{ model: model.apiModel ?? "yolo26x-cls" }}
                     fieldName={model.videoFieldName}
                     video={videoFile}
                     onVideoChange={handleVideoChange}
@@ -116,6 +119,7 @@ export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseC
                         imgUrl={videoSourceUrl}
                         setImgUrl={setVideoSourceUrl}
                         endpoint={videoUrlEndpoint}
+                        queryParams={{ model: model.apiModel ?? "yolo26x-cls" }}
                         queryParamName={model.videoUrlInput.queryParamName ?? "source"}
                         inputId={`${model.id}-video-url`}
                         disabled={isPredicting}
@@ -144,12 +148,12 @@ export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseC
             </div>
             </div>
             {videoUrl ? (
-                <div
-                    ref={containerRef}
-                    className={`relative mt-4 w-full rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition dark:border-gray-700 dark:bg-gray-800 ${isPredicting ? "pointer-events-none select-none opacity-60 blur-sm" : ""} ${isFullscreen ? "fixed inset-0 z-50 m-0 flex h-[100dvh] w-[100dvw] items-center justify-center overflow-hidden rounded-none border-0 bg-black p-0" : "max-w-6xl"}`}
-                >
-                    <div className={`grid w-full items-center gap-4 ${isFullscreen ? "h-full min-h-0 grid-cols-1 grid-rows-1" : "lg:grid-cols-[minmax(0,1fr)_20rem]"}`}>
-                        <div className={`relative ${isFullscreen ? "flex h-full min-h-0 min-w-0 w-full items-center justify-center" : ""}`}>
+                <FullscreenMediaLayout
+                    containerRef={containerRef}
+                    isFullscreen={isFullscreen}
+                    className={`mt-4 w-full max-w-6xl rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition dark:border-gray-700 dark:bg-gray-800 ${isPredicting ? "pointer-events-none select-none opacity-60 blur-sm" : ""} lg:grid-cols-[minmax(0,1fr)_20rem]`}
+                    media={(
+                        <div className="relative flex h-full w-full items-center justify-center">
                             <video
                                 ref={videoRef}
                                 src={videoUrl}
@@ -190,9 +194,9 @@ export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseC
                                 {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
                             </button>
                         </div>
-                        <div className={`rounded-xl p-4 shadow-sm ${isFullscreen
-                            ? "absolute right-4 top-1/2 z-30 max-h-[calc(100dvh-2rem)] w-[min(20rem,calc(100vw-2rem))] -translate-y-1/2 overflow-y-auto border border-white/30 bg-black/60 text-white backdrop-blur-sm"
-                            : "border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"}`}>
+                    )}
+                    controls={(
+                        <div className={`space-y-4 ${isFullscreen ? "" : "rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"}`}>
                             <ConfidenceThresholdControl value={confidenceThreshold} onChange={setConfidenceThreshold} />
                             {currentFrame?.classifications?.length ? (
                                 <>
@@ -229,10 +233,9 @@ export const ClassificationVideo = ({ model, onPredictionStart, onVideoResponseC
                                 </>
                             ) : <p className="mt-3 text-sm text-gray-500">{t("ui.noPredictions")}</p>}
                         </div>
-                    </div>
-                </div>
+                    )}
+                />
             ) : null}
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{t("ui.classificationVideoResultsNote")}</p>
         </div>
         </PredictionResultLayout>
     );

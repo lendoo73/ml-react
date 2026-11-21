@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { waitForVideoJob } from "../../services/videoJobService.js";
 import { useLanguage } from "../../context/useLanguage.js";
+import { appendQueryParams } from "../../utils/appendQueryParams.js";
 
 export const UrlInput = ({
     label,
@@ -19,12 +20,15 @@ export const UrlInput = ({
     mediaType,
     exampleUrl,
     exampleLabel = "Use sample video",
+    exampleDescription,
     exampleLoadingLabel = "Loading sample video...",
     onExampleClick,
     randomClassLabel = "Random class",
     randomClassMatched,
     onRandomClassChange,
     onProgressChange,
+    validateUrl,
+    loadingLabel = "Loading...",
 }) => {
     const { t } = useLanguage();
     const [error, setError] = useState("");
@@ -45,7 +49,12 @@ export const UrlInput = ({
         try {
             parsedUrl = new URL(urlToPredict);
         } catch {
-            setError("Enter a valid URL.");
+            setError(t("ui.invalidUrl"));
+            return;
+        }
+        const validationError = validateUrl?.(parsedUrl);
+        if (validationError) {
+            setError(validationError);
             return;
         }
 
@@ -54,8 +63,8 @@ export const UrlInput = ({
         const isVideoUrl = /\.(avi|m4v|mkv|mov|mp4|mpeg|mpg|ogv|webm|wmv)$/i.test(path);
         if ((mediaType === "image" && isVideoUrl) || (mediaType === "video" && isImageUrl)) {
             setError(mediaType === "video"
-                ? "Please enter a video URL."
-                : "Please enter an image URL.");
+                ? t("ui.videoUrlRequired")
+                : t("ui.imageUrlRequired"));
             return;
         }
 
@@ -67,10 +76,10 @@ export const UrlInput = ({
         if (imagePreload) imagePreload.src = urlToPredict;
 
         try {
-            const params = new URLSearchParams({
-                [queryParamName]: urlToPredict,
-                ...queryParams,
-            });
+            const params = appendQueryParams(
+                new URLSearchParams([[queryParamName, urlToPredict]]),
+                queryParams,
+            );
             const res = await fetch(`${endpoint}?${params.toString()}`);
             const responseText = await res.text();
             let data = {};
@@ -84,8 +93,8 @@ export const UrlInput = ({
                 const detail = Array.isArray(data.detail)
                     ? data.detail.map((item) => item.msg).join(", ")
                     : data.detail;
-                const message = detail || `Request failed with status ${res.status}`;
-                throw new Error(res.status === 400 ? `Bad request: ${message}` : message);
+                const message = detail || `${t("ui.requestFailed")} (${res.status})`;
+                throw new Error(res.status === 400 ? `${t("ui.badRequest")}: ${message}` : message);
             }
 
             const result = data.job_id && mediaType === "video"
@@ -97,7 +106,7 @@ export const UrlInput = ({
             onResult(result, urlToPredict);
         } catch (requestError) {
             console.error("Error predicting media URL:", requestError);
-            setError(requestError.message || "Unable to process this URL.");
+            setError(requestError.message || t("ui.unableToProcessUrl"));
         } finally {
             setLoading(false);
             onLoadingChange?.(false);
@@ -130,7 +139,7 @@ export const UrlInput = ({
                     bg-blue-600 text-white
                     dark:bg-blue-400 dark:text-gray-900
                 "
-            >            {loading ? (progress > 0 ? `${progress}%` : "Loading...") : buttonText ?? label}</button>
+            >            {loading ? (progress > 0 ? `${progress}%` : loadingLabel) : buttonText ?? label}</button>
             {exampleUrl || onExampleClick ? (
                 <button
                     type="button"
@@ -142,11 +151,18 @@ export const UrlInput = ({
                             const nextUrl = typeof selection === "string" ? selection : selection.url;
                             setSelectedRandomClass(typeof selection === "string" ? "" : selection.query ?? "");
                             onRandomClassChange?.(typeof selection === "string" ? "" : selection.query ?? "");
-                            setImgUrl(nextUrl);
-                            await handlePredict(nextUrl);
+                            if (selection && typeof selection === "object" && "result" in selection) {
+                                setImgUrl(selection.file ? "" : nextUrl);
+                                onResult(selection.result, selection.file ?? nextUrl);
+                            } else if (selection && typeof selection === "object" && selection.predict === false) {
+                                setImgUrl(nextUrl);
+                            } else {
+                                setImgUrl(nextUrl);
+                                await handlePredict(nextUrl);
+                            }
                         } catch (exampleError) {
                             console.error("Error loading sample media:", exampleError);
-                            setError(exampleError.message || "Unable to load a sample video.");
+                            setError(exampleError.message || t("ui.unableToLoadSampleVideo"));
                         } finally {
                             setExampleLoading(false);
                         }
@@ -156,6 +172,11 @@ export const UrlInput = ({
                 >
                     {exampleLoading ? exampleLoadingLabel : exampleUrl ? `${exampleLabel}: ${exampleUrl}` : exampleLabel}
                 </button>
+            ) : null}
+            {exampleDescription ? (
+                <p className="basis-full text-sm text-gray-600 dark:text-gray-400">
+                    {exampleDescription}
+                </p>
             ) : null}
             {selectedRandomClass ? (
                 <p className={`basis-full rounded-lg border px-3 py-2 text-base font-medium ${

@@ -22,9 +22,10 @@ export const useClassificationClassPreview = () => useCallback(async (model, cla
         const params = new URLSearchParams({
             [model.queryParamName ?? "source"]: sourceUrl,
             output: "image",
+            model: model.apiModel ?? "yolo26x-cls",
         });
-        const response = await fetch(`${API_URL}/api/${model.apiPath}/${model.endpoints.image}?${params.toString()}`);
-        if (response.ok) return response.blob();
+        const response = await fetch(`${API_URL}/api/${model.apiPath ?? "classification"}/predict?${params.toString()}`);
+        if (response.ok) return { blob: await response.blob(), sourceUrl };
     }
 
     throw new Error(`Classification preview failed for class "${className}".`);

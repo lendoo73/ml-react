@@ -69,8 +69,8 @@ export const useClassificationWorkspace = (model) => {
     const onVideoResponseChange = useCallback((nextResponse) => {
         setVideoResponse(nextResponse);
     }, []);
-    const onRandomPreview = useCallback((url, className) => {
-        setRandomPreview(url ? { url, className } : null);
+    const onRandomPreview = useCallback((url, className, sourceUrl) => {
+        setRandomPreview(url ? { url, className, sourceUrl } : null);
     }, []);
 
     return {

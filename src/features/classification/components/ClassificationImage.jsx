@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API_URL } from "../../../config/settings.js";
 import { useLanguage } from "../../../context/useLanguage.js";
 import { getRandomImageUrl } from "../../../services/mediaService.js";
 import { ImageInputPanel } from "../../../components/ui/ImageInputPanel.jsx";
 import { sendFileToAPI } from "../../../utils/fileApi.js";
+import { selectRandomTestImage } from "../utils/selectRandomTestImage.js";
 
 export const ClassificationImage = ({
     model,
@@ -18,16 +19,19 @@ export const ClassificationImage = ({
     const [randomClass, setRandomClass] = useState("");
     const [latestResult, setLatestResult] = useState([]);
     const { t } = useLanguage();
-    const endpoint = `${API_URL}/api/${model.apiPath}/${model.endpoints.image}`;
-    const handleResult = (nextResult, sourceUrl) => {
+    const endpoint = `${API_URL}/api/${model.apiPath ?? "classification"}/predict`;
+    const handleResult = useCallback((nextResult, sourceUrl) => {
         const predictions = Array.isArray(nextResult) ? nextResult : nextResult?.predictions ?? [];
         setLatestResult(predictions);
         onChange(nextResult, sourceUrl);
-    };
+    }, [onChange]);
 
     useEffect(() => {
         const rerunPrediction = async (confidenceThreshold) => {
-            const params = new URLSearchParams({ conf: String(confidenceThreshold) });
+            const params = new URLSearchParams({
+                conf: String(confidenceThreshold),
+                model: model.apiModel ?? "yolo26x-cls",
+            });
             onPredictionPending?.();
 
             if (fileRef.current) {
@@ -45,6 +49,7 @@ export const ClassificationImage = ({
                     source: imageUrl,
                     output: "json",
                     conf: String(confidenceThreshold),
+                    model: model.apiModel ?? "yolo26x-cls",
                 }).toString()}`);
                 const result = await response.json();
                 if (!response.ok) throw new Error(result?.detail ?? "Classification prediction failed.");
@@ -54,7 +59,7 @@ export const ClassificationImage = ({
 
         onPredictionControlsReady?.(rerunPrediction);
         return () => onPredictionControlsReady?.(null);
-    }, [endpoint, imageUrl, model.fileFieldName, onChange, onPredictionControlsReady, onPredictionPending]);
+    }, [endpoint, handleResult, imageUrl, model.apiModel, model.fileFieldName, onPredictionControlsReady, onPredictionPending]);
 
     const handleFileSelect = (selectedFile) => {
         setFile(selectedFile);
@@ -76,6 +81,7 @@ export const ClassificationImage = ({
                 }}
                 fileEndpoint={endpoint}
                 urlEndpoint={endpoint}
+                queryParams={{ model: model.apiModel ?? "yolo26x-cls" }}
                 onResult={(result, sourceUrl) => handleResult(result, fileRef.current ?? sourceUrl ?? imageUrl)}
                 onRandomClassChange={setRandomClass}
                 randomClassMatched={randomClass
@@ -89,7 +95,19 @@ export const ClassificationImage = ({
                 randomImageLabel={t("ui.randomImage")}
                 randomImageLoadingLabel={t("ui.loadingRandomImage")}
                 randomClassLabel={t("ui.randomClass")}
-                onRandomImage={() => getRandomImageUrl(model)}
+                onRandomImage={async () => {
+                    if (!model.testImages) return getRandomImageUrl(model);
+                    const selection = selectRandomTestImage(
+                        model.testImages,
+                        undefined,
+                        model.testImageDirectory
+                    );
+                    if (!selection) throw new Error("No test images are available.");
+                    return {
+                        url: new URL(selection.url, window.location.origin).href,
+                        query: selection.className,
+                    };
+                }}
                 onPredictionStart={onPredictionStart}
             />
         </div>

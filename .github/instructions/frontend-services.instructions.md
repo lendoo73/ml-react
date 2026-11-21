@@ -15,5 +15,7 @@ description: "Domain ownership and API/data handling within frontend features"
   environment-specific credentials.
 - Validate file and URL inputs before sending requests and propagate meaningful
   errors to the UI.
-- Keep model endpoint differences in the model catalog, not scattered through
-  unrelated domains.
+- Keep fixed model endpoints and other invariant values directly at their use
+  sites in the owning feature. Use a config module only for values intentionally
+  adjustable by environment, deployment, or user choice; never create one solely
+  to collect constants.

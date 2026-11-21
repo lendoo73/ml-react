@@ -3,12 +3,15 @@ import {
     ChevronDown,
     ChevronRight,
     Computer,
+    Brain,
     Radar,
     ScanSearch,
     Tags,
-    Shapes,
     PersonStanding,
     FlaskConical,
+    CarFront,
+    Stethoscope,
+    CircleDot,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLanguage } from "../context/useLanguage.js";
@@ -19,10 +22,13 @@ const ICONS_BY_KEY = {
     computerVision: Computer,
     detection: ScanSearch,
     classification: Tags,
-    segmentation: Shapes,
+    segmentation: Brain,
     pose: PersonStanding,
     customModel: FlaskConical,
     yolo26: Radar,
+    car: CarFront,
+    chestXray: Stethoscope,
+    pothole: CircleDot,
 };
 
 export const Sidebar = ({ activePageId, onSelect, isOpen, onClose }) => {
@@ -66,11 +72,17 @@ export const Sidebar = ({ activePageId, onSelect, isOpen, onClose }) => {
                         const isOpen = openMenuIds.includes(menu.id);
 
                         return (
-                            <li key={menu.id} className="rounded-xl">
+                            <li className={`rounded-xl border p-1 transition-all duration-200 ${isOpen
+                                ? "border-blue-200 bg-blue-50/70 shadow-inner dark:border-blue-900 dark:bg-gray-900/70"
+                                : "border-transparent"
+                            }`} key={menu.id}>
                                 <button
                                     type="button"
                                     onClick={() => toggleMenu(menu.id)}
-                                    className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-800 transition hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
+                                    className={`flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-3 text-left text-sm font-semibold transition ${isOpen
+                                        ? "bg-white text-blue-900 shadow-sm dark:bg-gray-800 dark:text-blue-200"
+                                        : "text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
+                                    }`}
                                 >
                                     <span className="flex items-center gap-3">
                                         {MenuIcon ? <MenuIcon className="h-4 w-4" aria-hidden="true" /> : null}
@@ -80,13 +92,19 @@ export const Sidebar = ({ activePageId, onSelect, isOpen, onClose }) => {
                                 </button>
 
                                 {isOpen ? (
-                                    <div className="mt-2 space-y-4 pl-4">
+                                    <div className="mt-2 space-y-4 rounded-lg border border-gray-200 bg-gray-100/80 p-2 shadow-inner dark:border-gray-800 dark:bg-gray-950/50">
                                         {menu.sections.map((section) => (
-                                            <div key={section.id} className="space-y-1">
+                                            <div key={section.id} className={`space-y-1 rounded-lg transition-colors ${openSectionIds.includes(`${menu.id}-${section.id}`)
+                                                ? "border border-blue-200 bg-white p-1.5 shadow-inner dark:border-blue-700 dark:bg-gray-800"
+                                                : ""
+                                            }`}>
                                                 <button
                                                     type="button"
                                                     onClick={() => toggleSection(`${menu.id}-${section.id}`)}
-                                                    className="flex w-full items-center justify-between px-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300"
+                                                    className={`flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide transition-colors ${openSectionIds.includes(`${menu.id}-${section.id}`)
+                                                        ? "bg-blue-100/70 text-blue-800 dark:bg-gray-800 dark:text-blue-200"
+                                                        : "text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300"
+                                                    }`}
                                                 >
                                                     {section.name}
                                                     {openSectionIds.includes(`${menu.id}-${section.id}`)
@@ -106,7 +124,7 @@ export const Sidebar = ({ activePageId, onSelect, isOpen, onClose }) => {
                                                                         onSelect(item.id);
                                                                         onClose();
                                                                     }}
-                                                                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                                                                    className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
                                                                         isActive
                                                                             ? "bg-blue-600 text-white shadow-sm"
                                                                             : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -117,7 +135,7 @@ export const Sidebar = ({ activePageId, onSelect, isOpen, onClose }) => {
                                                                             <img
                                                                                 src={isActive ? (item.activeIconSrc ?? item.iconSrc) : item.iconSrc}
                                                                                 alt=""
-                                                                                className={`block h-5 ${item.iconKey === "yolo26" ? "w-10" : "w-5"}`}
+                                                                                className={`block h-5 ${item.iconKey === "yolo26" ? "w-10" : "w-5"} ${item.iconKey === "faceMask" ? "brightness-0 dark:invert" : ""} ${item.id === "knife-attack-detection" ? (isActive ? "brightness-0 invert" : "brightness-0 dark:invert") : ""}`}
                                                                                 aria-hidden="true"
                                                                             />
                                                                         </span>

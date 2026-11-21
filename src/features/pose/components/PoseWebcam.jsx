@@ -4,16 +4,38 @@ import { useLanguage } from "../../../context/useLanguage.js";
 import { FixedSpinner } from "../../../components/ui/FixedSpinner.jsx";
 import { PredictionResultLayout } from "../../../components/ui/PredictionResultLayout.jsx";
 import { PosePredictionResult } from "./PosePredictionResult.jsx";
+import { TrackingControls } from "../../../components/ui/TrackingControls.jsx";
 
 const FRAME_INTERVAL_MS = 250;
 
-const getWebSocketUrl = (apiPath, endpoint) => {
-    const url = new URL(`${API_URL}/api/${apiPath}/${endpoint}`);
+const getWebSocketUrl = (tracking, tracker, angles) => {
+    const url = new URL(`${API_URL}/api/pose_estimation/predict/webcam`);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    if (angles) {
+        url.searchParams.set("angles", JSON.stringify(angles));
+    } else {
+        url.searchParams.set("tracking", String(tracking));
+        url.searchParams.set("tracker", tracker);
+    }
     return url.toString();
 };
 
-export const PoseWebcam = ({ model }) => {
+export const PoseWebcam = ({
+    model,
+    angles,
+    renderFrameContent,
+    onFrame,
+    onPredictionStart,
+    defaultSelectedKeypoints,
+    defaultShowLabels,
+    defaultShowConfidence,
+    counterMetrics,
+    counterVisibility,
+    onCounterVisibilityChange,
+    onResetCounter,
+    counterLabels,
+    counterPersonLabel,
+}) => {
     const { t } = useLanguage();
     const videoRef = useRef(null);
     const captureRef = useRef(null);
@@ -26,6 +48,11 @@ export const PoseWebcam = ({ model }) => {
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [error, setError] = useState("");
     const [poses, setPoses] = useState([]);
+    const [frameData, setFrameData] = useState(null);
+    const [tracking, setTracking] = useState(false);
+    const [tracker, setTracker] = useState("bytetrack");
+    const [showIds, setShowIds] = useState(true);
+    const [annotationSession, setAnnotationSession] = useState(0);
 
     const stopWebcam = useCallback(() => {
         setIsTransitioning(true);
@@ -38,6 +65,7 @@ export const PoseWebcam = ({ model }) => {
         streamRef.current = null;
         setStream(null);
         setPoses([]);
+        setFrameData(null);
         setIsRunning(false);
         window.setTimeout(() => setIsTransitioning(false), 300);
     }, []);
@@ -46,16 +74,24 @@ export const PoseWebcam = ({ model }) => {
         setIsTransitioning(true);
         setError("");
         inferencePendingRef.current = false;
+        setAnnotationSession((session) => session + 1);
+        onPredictionStart?.();
         let nextStream;
 
         try {
             nextStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            const socket = new WebSocket(getWebSocketUrl(model.apiPath, model.endpoints.webcam));
+            streamRef.current = nextStream;
+            setStream(nextStream);
+            const socket = new WebSocket(getWebSocketUrl(tracking, tracker, angles));
+            socketRef.current = socket;
             socket.binaryType = "arraybuffer";
             socket.onmessage = (event) => {
                 inferencePendingRef.current = false;
-                const nextPoses = JSON.parse(event.data ?? "[]");
+                const nextFrame = JSON.parse(event.data ?? "[]");
+                const nextPoses = Array.isArray(nextFrame) ? nextFrame : nextFrame?.poses;
+                setFrameData(Array.isArray(nextFrame) ? { poses: nextFrame } : nextFrame);
                 setPoses(Array.isArray(nextPoses) ? nextPoses : []);
+                onFrame?.(Array.isArray(nextFrame) ? { poses: nextFrame } : nextFrame);
             };
             socket.onerror = () => setError(t("ui.webcamConnectionError"));
             socket.onclose = () => {
@@ -68,9 +104,6 @@ export const PoseWebcam = ({ model }) => {
                 socket.onerror = () => reject(new Error(t("ui.webcamConnectionError")));
             });
 
-            socketRef.current = socket;
-            streamRef.current = nextStream;
-            setStream(nextStream);
             setIsRunning(true);
 
             const capture = captureRef.current;
@@ -98,12 +131,15 @@ export const PoseWebcam = ({ model }) => {
         } catch (startError) {
             nextStream?.getTracks().forEach((track) => track.stop());
             streamRef.current = null;
+            socketRef.current?.close();
+            socketRef.current = null;
+            setStream(null);
             setError(startError.message || t("ui.webcamAccessError"));
             stopWebcam();
         } finally {
             setIsTransitioning(false);
         }
-    }, [model, stopWebcam, t]);
+    }, [stopWebcam, t, tracking, tracker, angles, onFrame, onPredictionStart]);
 
     useEffect(() => () => {
         clearInterval(timerRef.current);
@@ -126,8 +162,30 @@ export const PoseWebcam = ({ model }) => {
                 showResponse={false}
                 showToggle
                 keypointLabels={model.keypoints}
+                showIds={showIds}
+                annotationSession={annotationSession}
+                trackingEnabled={angles ? true : tracking}
+                onShowIdsChange={setShowIds}
+                defaultSelectedKeypoints={defaultSelectedKeypoints}
+                defaultShowLabels={defaultShowLabels}
+                defaultShowConfidence={defaultShowConfidence}
+                counterMetrics={counterMetrics}
+                counterVisibility={counterVisibility}
+                onCounterVisibilityChange={onCounterVisibilityChange}
+                onResetCounter={onResetCounter}
+                counterLabels={counterLabels}
+                counterPersonLabel={counterPersonLabel}
                 bottomControls={(
                     <div className="space-y-3">
+                        {angles ? null : (
+                            <TrackingControls
+                                tracking={tracking}
+                                onTrackingChange={setTracking}
+                                tracker={tracker}
+                                onTrackerChange={setTracker}
+                                disabled={isRunning || isTransitioning}
+                            />
+                        )}
                         <button
                             type="button"
                             onClick={isRunning ? stopWebcam : startWebcam}
@@ -140,6 +198,7 @@ export const PoseWebcam = ({ model }) => {
                     </div>
                 )}
             />
+            {renderFrameContent?.(frameData, annotationSession)}
             <canvas ref={captureRef} className="hidden" />
         </PredictionResultLayout>
     );

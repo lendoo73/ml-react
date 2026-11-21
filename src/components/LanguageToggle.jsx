@@ -1,7 +1,7 @@
 import {Globe} from "lucide-react";
 import {useLanguage} from "../context/useLanguage.js";
 
-const baseClass = "px-4 py-2 text-sm font-medium transition-all " +
+const baseClass = "cursor-pointer px-4 py-2 text-sm font-medium transition-all " +
     "focus:outline-none " +
     "className={`${baseClass}} ";
 

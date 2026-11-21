@@ -2,6 +2,7 @@ import { Maximize, Minimize } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../../context/useLanguage.js";
 import { ConfidenceThresholdControl } from "../../../components/ui/ConfidenceThresholdControl.jsx";
+import { FullscreenPanelToggle } from "../../../components/ui/FullscreenMediaLayout.jsx";
 
 const getPredictions = (result) => {
     if (Array.isArray(result)) return result;
@@ -26,13 +27,16 @@ const getConfidence = (prediction) => {
 export const ClassificationResult = ({ image, result, onImageLoad, confidenceThreshold = 0.5, onConfidenceThresholdChange }) => {
     const { t } = useLanguage();
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showFullscreenControls, setShowFullscreenControls] = useState(true);
     const imageContainerRef = useRef(null);
     const predictions = useMemo(() => getPredictions(result), [result]);
     const topPrediction = predictions[0] ?? null;
 
     useEffect(() => {
         const handleFullscreenChange = () => {
-            setIsFullscreen(document.fullscreenElement === imageContainerRef.current);
+            const isCurrentElementFullscreen = document.fullscreenElement === imageContainerRef.current;
+            setIsFullscreen(isCurrentElementFullscreen);
+            if (isCurrentElementFullscreen) setShowFullscreenControls(true);
         };
 
         document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -45,7 +49,7 @@ export const ClassificationResult = ({ image, result, onImageLoad, confidenceThr
             return;
         }
 
-        await imageContainerRef.current?.requestFullscreen();
+        await imageContainerRef.current?.requestFullscreen({ navigationUI: "hide" });
     };
 
     if (!image && predictions.length === 0) return null;
@@ -53,22 +57,32 @@ export const ClassificationResult = ({ image, result, onImageLoad, confidenceThr
     const imageUrl = typeof image === "string" ? image : image ? URL.createObjectURL(image) : "";
 
     return (
-        <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div
+            ref={imageContainerRef}
+            className={isFullscreen
+                ? "relative block h-full w-full overflow-hidden bg-black"
+                : "relative grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"}
+        >
             <div
-                ref={imageContainerRef}
-                className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 ${isFullscreen ? "flex items-center justify-center" : ""}`}
+                className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 ${isFullscreen
+                    ? "absolute inset-0 flex h-full w-full items-center justify-center rounded-none border-0 bg-black shadow-none"
+                    : ""}`}
             >
                 {imageUrl ? (
                     <img
                         src={imageUrl}
                         alt={t("ui.classificationPreviewAlt")}
-                        className={`max-h-[32rem] w-full bg-black object-contain ${isFullscreen ? "max-h-screen" : ""}`}
+                        className={`max-h-128 w-full bg-black object-contain ${isFullscreen ? "h-full max-h-full w-full" : ""}`}
                         onLoad={onImageLoad}
                     />
                 ) : null}
             </div>
 
-            <div className="space-y-4">
+            <div className={`space-y-4 ${isFullscreen
+                ? "absolute right-4 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-80 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/30 bg-black/60 p-4 text-white shadow-lg backdrop-blur-sm"
+                : ""}`}
+                hidden={isFullscreen && !showFullscreenControls}
+            >
                 <div className="flex justify-start">
                     <button
                         type="button"
@@ -79,6 +93,7 @@ export const ClassificationResult = ({ image, result, onImageLoad, confidenceThr
                     >
                         {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
                     </button>
+                    {isFullscreen ? <FullscreenPanelToggle visible onClick={() => setShowFullscreenControls(false)} /> : null}
                 </div>
                 {onConfidenceThresholdChange ? (
                     <ConfidenceThresholdControl
@@ -124,6 +139,9 @@ export const ClassificationResult = ({ image, result, onImageLoad, confidenceThr
                     </div>
                 </div>
             </div>
+            {isFullscreen && !showFullscreenControls ? (
+                <FullscreenPanelToggle visible={false} onClick={() => setShowFullscreenControls(true)} />
+            ) : null}
         </div>
     );
 };
