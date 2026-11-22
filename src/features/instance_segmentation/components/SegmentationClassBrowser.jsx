@@ -28,7 +28,7 @@ export const SegmentationClassBrowser = ({ model, inline = false }) => {
             setPreview({ className, url: URL.createObjectURL(blob), sourceUrl });
         } catch (previewError) {
             console.error("Unable to load segmentation class preview:", previewError);
-            setError(t("ui.segmentationPreviewError"));
+            setError(model.info?.previewError ?? t("ui.segmentationPreviewError"));
         } finally {
             setIsLoading(false);
         }
@@ -76,7 +76,7 @@ export const SegmentationClassBrowser = ({ model, inline = false }) => {
             )}
             {isLoading ? (
                 <p className="mt-4 text-sm text-gray-500 dark:text-gray-400" aria-live="polite">
-                    {t("ui.loadingClassPreview")}
+                    {model.info?.loadingPreview ?? t("ui.loadingClassPreview")}
                 </p>
             ) : null}
             {error ? <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-300">{error}</p> : null}
@@ -84,13 +84,13 @@ export const SegmentationClassBrowser = ({ model, inline = false }) => {
                 <div className="mt-6 border-t border-gray-200 pt-5 dark:border-gray-700">
                     <div className="mb-4 flex items-center justify-between gap-4">
                         <h3 className="text-lg font-semibold">
-                            {t("ui.segmentationRandomPreview")}: {preview.className}
+                            {model.info?.previewTitle ?? t("ui.segmentationRandomPreview")}: {preview.className}
                         </h3>
                         <button
                             type="button"
                             onClick={() => setPreview(null)}
                             className="cursor-pointer rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-white"
-                            aria-label={t("ui.closePreview")}
+                            aria-label={model.info?.closePreview ?? t("ui.closePreview")}
                         >
                             <X className="h-5 w-5" aria-hidden="true" />
                         </button>
@@ -104,7 +104,7 @@ export const SegmentationClassBrowser = ({ model, inline = false }) => {
                     >
                         <img
                             src={preview.url}
-                            alt={`${preview.className} ${t("ui.segmentationPreviewAlt")}`}
+                            alt={`${preview.className} ${model.info?.previewAlt ?? t("ui.segmentationPreviewAlt")}`}
                             className="max-h-[36rem] w-full rounded-xl bg-black object-contain"
                         />
                     </a>

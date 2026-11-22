@@ -62,11 +62,11 @@ export const navigation = [
                 },
                 {
                     id: "instance_segmentation",
-                    name: "Segmentation",
+                    name: "Instance Segmentation",
                     items: [
                         {
                             id: "segmentation-placeholder",
-                            name: "YOLO26 Segmentation",
+                            name: "YOLO26 Instance Segmentation",
                             iconKey: "yolo26",
                             iconSrc: "/logos/yolo26-logo.svg",
                             activeIconSrc: "/logos/yolo26-logo-active.svg",
