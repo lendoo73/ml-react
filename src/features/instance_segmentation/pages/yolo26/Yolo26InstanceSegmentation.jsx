@@ -5,14 +5,14 @@ import { SourceCards } from "../../../classification/components/sections/SourceC
 import { PredictVideo } from "../../../detection/components/PredictVideo.jsx";
 import { WebcamPredictor } from "../../../detection/components/WebcamPredictor.jsx";
 import { ModelInfoSection } from "../../../../components/ModelInfoSection.jsx";
-import { SegmentationClassBrowser } from "../../components/SegmentationClassBrowser.jsx";
-import { SegmentationImage } from "../../components/SegmentationImage.jsx";
+import { InstanceSegmentationClassBrowser } from "../../components/InstanceSegmentationClassBrowser.jsx";
+import { InstanceSegmentationImage } from "../../components/InstanceSegmentationImage.jsx";
 import { COCO_CLASSES } from "../../../../content/cocoClasses.js";
 
-export const Yolo26Segmentation = ({ model }) => {
+export const Yolo26InstanceSegmentation = ({ model }) => {
     const pageModel = {
         ...model,
-        apiPath: "segmentation",
+        apiPath: "instance_segmentation",
         apiModel: "yolo26x-seg",
         classes: model.classes?.length ? model.classes : COCO_CLASSES,
     };
@@ -27,7 +27,7 @@ export const Yolo26Segmentation = ({ model }) => {
         <ClassificationPageLayout>
             <Hero
                 {...pageModel.hero}
-                image="/images/segmentation-sample.png"
+                image="/images/instance-segmentation-sample.png"
                 imageHref="https://docs.ultralytics.com/tasks/segment/"
                 links={pageModel.links?.map((link) => ({
                     ...link,
@@ -40,13 +40,13 @@ export const Yolo26Segmentation = ({ model }) => {
             />
             {pageModel.info ? (
                 <ModelInfoSection info={pageModel.info}>
-                    <SegmentationClassBrowser model={pageModel} inline />
+                    <InstanceSegmentationClassBrowser model={pageModel} inline />
                 </ModelInfoSection>
             ) : null}
             <SourceCards sources={sources} selectedSourceId={activeSourceId} onSelect={setActiveSourceId} />
-            {activeSourceId === "image" ? <SegmentationImage model={pageModel} /> : null}
+            {activeSourceId === "image" ? <InstanceSegmentationImage model={pageModel} /> : null}
             {activeSourceId === "video" ? <PredictVideo model={pageModel} /> : null}
-            {activeSourceId === "webcam" ? <WebcamPredictor model={pageModel} isSegmentation /> : null}
+            {activeSourceId === "webcam" ? <WebcamPredictor model={pageModel} isInstanceSegmentation /> : null}
         </ClassificationPageLayout>
     );
 };

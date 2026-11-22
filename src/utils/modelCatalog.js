@@ -8,8 +8,8 @@ import { translations } from "../content/translations/index.js";
  *
  * @example
  * const catalog = getModelCatalog("fr");
- * const model = catalog["segmentation-placeholder"];
- * // model.hero.title is localized and model.id is "segmentation-placeholder".
+ * const model = catalog["instance-segmentation-yolo26"];
+ * // model.hero.title is localized and model.id is "instance-segmentation-yolo26".
  */
 export const getModelCatalog = (language = "en") => {
     const activeTranslations = translations[language] ?? translations.en;

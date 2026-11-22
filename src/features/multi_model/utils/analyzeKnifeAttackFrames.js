@@ -153,7 +153,7 @@ const getTrackId = (identity) => (
         : null
 );
 
-const toKnifeSegmentation = (detection) => {
+const toKnifeInstance = (detection) => {
     if (normalizeClassName(detection?.class_name) !== "knife") return null;
     const {x_min: xMin, y_min: yMin, x_max: xMax, y_max: yMax} = detection?.bbox ?? {};
     if (![xMin, yMin, xMax, yMax].every((value) => Number.isFinite(Number(value)))) return null;
@@ -164,15 +164,15 @@ const toKnifeSegmentation = (detection) => {
     };
 };
 
-const getSegmentation = (frame) => {
-    const segmentations = Array.isArray(frame?.predictions?.segmentation)
-        ? frame.predictions.segmentation
+const getInstanceSegmentation = (frame) => {
+    const instances = Array.isArray(frame?.predictions?.["instance-segmentation"])
+        ? frame.predictions["instance-segmentation"]
         : [];
     const detections = frame?.predictions?.["object-detection"] ?? frame?.predictions?.knife;
-    if (!Array.isArray(detections)) return segmentations;
+    if (!Array.isArray(detections)) return instances;
     return [
-        ...segmentations.filter((item) => normalizeClassName(item?.class_name) !== "knife"),
-        ...detections.map(toKnifeSegmentation).filter(Boolean),
+        ...instances.filter((item) => normalizeClassName(item?.class_name) !== "knife"),
+        ...detections.map(toKnifeInstance).filter(Boolean),
     ];
 };
 
@@ -228,7 +228,7 @@ const getNearestVictimIdentity = (people, knives, attackerIdentity, currentVicti
  * Enrich ordered multi-model frames with optional roles and possible-attack
  * evidence. Once a possible attack starts, attacker identity persists through
  * short knife-detection gaps and the nearest non-attacker is the potential
- * victim. Segmentation track IDs identify people across frames; pose tracker
+ * victim. Instance-segmentation track IDs identify people across frames; pose tracker
  * IDs are intentionally not used for cross-model matching.
  *
  * @param {Array<object>} frames - Ordered multi-model prediction frames.
@@ -243,12 +243,12 @@ export const analyzeKnifeAttackFrames = (frames, options = {}) => {
     const attackedIdentities = new Set();
 
     return (Array.isArray(frames) ? frames : []).map((frame, frameIndex) => {
-        const segmentations = getSegmentation(frame);
-        const people = segmentations
+        const instanceSegmentations = getInstanceSegmentation(frame);
+        const people = instanceSegmentations
             .map((item, index) => ({ item, index, identity: getIdentity(item, index) }))
             .filter(({ item }) => normalizeClassName(item?.class_name) === "person"
                 && isValidPolygon(item?.polygon));
-        const knives = segmentations.filter((item) => (
+        const knives = instanceSegmentations.filter((item) => (
             normalizeClassName(item?.class_name) === "knife" && isValidPolygon(item?.polygon)
         ));
         const knifeContactIdentities = new Set(
@@ -296,7 +296,7 @@ export const analyzeKnifeAttackFrames = (frames, options = {}) => {
         const frameAttacker = people.find(({ identity }) => identity === attackerIdentity);
         const frameVictim = people.find(({ identity }) => identity === victimIdentity);
         const attackedThisFrame = [];
-        const annotatedSegmentations = segmentations.map((item) => {
+        const annotatedInstanceSegmentations = instanceSegmentations.map((item) => {
             const person = people.find(({ item: candidate }) => candidate === item);
             if (!person) return item;
             const isAttacker = attackActive && person.identity === attackerIdentity;
@@ -322,7 +322,7 @@ export const analyzeKnifeAttackFrames = (frames, options = {}) => {
         const victimTrackIds = attackActive && victimIdentity && victimIdentity !== attackerIdentity
             ? [frameVictim?.item.track_id ?? getTrackId(victimIdentity)]
             : [];
-        const finalSegmentations = annotatedSegmentations.map((item) => (
+        const finalInstanceSegmentations = annotatedInstanceSegmentations.map((item) => (
             normalizeClassName(item?.class_name) === "knife"
                 ? {
                     ...item,
@@ -334,16 +334,16 @@ export const analyzeKnifeAttackFrames = (frames, options = {}) => {
         ));
         const predictions = Object.fromEntries(
             Object.entries(frame?.predictions ?? {}).map(([model, items]) => {
-                if (model !== "segmentation") return [model, items];
-                return [model, finalSegmentations];
+                if (model !== "instance-segmentation") return [model, items];
+                return [model, finalInstanceSegmentations];
             }),
         );
 
         return {
             ...frame,
-            predictions: Array.isArray(frame?.predictions?.segmentation) ? predictions : {
+            predictions: Array.isArray(frame?.predictions?.["instance-segmentation"]) ? predictions : {
                 ...(frame?.predictions ?? {}),
-                segmentation: finalSegmentations,
+                "instance-segmentation": finalInstanceSegmentations,
             },
             behavior: {
                 attackerTrackId: attackActive

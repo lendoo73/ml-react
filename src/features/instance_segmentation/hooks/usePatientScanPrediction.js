@@ -90,7 +90,7 @@ export const usePatientScanPrediction = (model) => {
             });
             setState((current) => ({ ...current, slices, status: "predicting", progress: 0 }));
 
-            const endpoint = `${API_URL}/api/${model.apiPath ?? "segmentation"}/${model.endpoints.batch}`;
+            const endpoint = `${API_URL}/api/${model.apiPath ?? "instance_segmentation"}/${model.endpoints.batch}`;
             const formData = new FormData();
             formData.append("source", zipFile);
             const requestUrl = new URL(endpoint);

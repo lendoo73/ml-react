@@ -62,7 +62,7 @@ const getDetectionCenter = (detection) => {
     return null;
 };
 
-export const WebcamPredictor = ({ model, isSegmentation = false, supportsTracking = true, onDetectionsChange, onTrackingChange, onTrackingSessionStart, drawCustomOverlay, renderSplitterOverlay, renderControlsPanel, onSplitterPointerMove, onSplitterPointerUp, onSplitterPointerCancel, defaultShowLabels = true, defaultShowConfidence = true }) => {
+export const WebcamPredictor = ({ model, isInstanceSegmentation = false, supportsTracking = true, onDetectionsChange, onTrackingChange, onTrackingSessionStart, drawCustomOverlay, renderSplitterOverlay, renderControlsPanel, onSplitterPointerMove, onSplitterPointerUp, onSplitterPointerCancel, defaultShowLabels = true, defaultShowConfidence = true }) => {
     const { t } = useLanguage();
     const isOrientedBoundingBox = model.supportsOrientedBoxes ?? model.id === "yolo26-obb-official";
     const videoRef = useRef(null);
@@ -87,7 +87,7 @@ export const WebcamPredictor = ({ model, isSegmentation = false, supportsTrackin
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [confidenceThreshold, setConfidenceThreshold] = useState(0.5);
     const [annotationSize, setAnnotationSize] = useState(1);
-    const [showBoundaryBoxes, setShowBoundaryBoxes] = useState(!isSegmentation);
+    const [showBoundaryBoxes, setShowBoundaryBoxes] = useState(!isInstanceSegmentation);
     const [showOrientedBoxes, setShowOrientedBoxes] = useState(true);
     const [showLabels, setShowLabels] = useState(defaultShowLabels);
     const [showConfidence, setShowConfidence] = useState(defaultShowConfidence);
@@ -217,7 +217,7 @@ export const WebcamPredictor = ({ model, isSegmentation = false, supportsTrackin
                 });
                 return;
             }
-            if (isSegmentation) {
+            if (isInstanceSegmentation) {
                 const polygon = detection.polygon ?? [];
                 if (polygon.length < 2) return;
                 const annotationColor = getAnnotationColor(detection.class_name, detection.track_id, annotationSessionRef.current).color;
@@ -269,7 +269,7 @@ export const WebcamPredictor = ({ model, isSegmentation = false, supportsTrackin
             });
             });
         drawCustomOverlay?.(context, detections);
-    }, [detections, selectedClasses, showBoxes, isSegmentation, confidenceThreshold, annotationSize, showBoundaryBoxes, showOrientedBoxes, showLabels, showConfidence, showIds, tracking, showTrajectory, trajectoryHistory, drawCustomOverlay]);
+    }, [detections, selectedClasses, showBoxes, isInstanceSegmentation, confidenceThreshold, annotationSize, showBoundaryBoxes, showOrientedBoxes, showLabels, showConfidence, showIds, tracking, showTrajectory, trajectoryHistory, drawCustomOverlay]);
 
     const stopWebcam = () => {
         setIsTransitioning(true);
@@ -305,10 +305,10 @@ export const WebcamPredictor = ({ model, isSegmentation = false, supportsTrackin
             videoRef.current.srcObject = stream;
             await videoRef.current.play();
 
-            const domain = model.apiPath ?? (isSegmentation ? "segmentation" : "object_detection");
+            const domain = model.apiPath ?? (isInstanceSegmentation ? "instance_segmentation" : "object_detection");
             const endpointUrl = `${API_URL}/api/${domain}/predict/webcam`;
             const socketUrl = new URL(getWebSocketUrl(endpointUrl));
-            socketUrl.searchParams.set("model", model.apiModel ?? (isSegmentation ? "yolo26x-seg" : "yolo26x"));
+            socketUrl.searchParams.set("model", model.apiModel ?? (isInstanceSegmentation ? "yolo26x-seg" : "yolo26x"));
             if (supportsTracking) {
                 socketUrl.searchParams.set("tracking", String(tracking));
                 socketUrl.searchParams.set("tracker", tracker);

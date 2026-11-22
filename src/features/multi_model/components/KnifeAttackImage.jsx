@@ -9,7 +9,7 @@ import {analyzeKnifeAttackFrames} from "../utils/analyzeKnifeAttackFrames.js";
 import {KnifeAttackAnnotations} from "./KnifeAttackAnnotations.jsx";
 
 const IMAGE_ENDPOINT = `${API_URL}/api/multi_model/predict`;
-const MODELS = ["segmentation", "pose-estimation", "object-detection"];
+const MODELS = ["instance-segmentation", "pose-estimation", "object-detection"];
 
 const readResponse = async (response, labels) => {
     const body = await response.json().catch(() => null);
@@ -47,7 +47,7 @@ export const KnifeAttackImage = ({
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const confidenceRef = useRef({
-        segmentation: annotationOptions.segmentationConfidence,
+        instanceSegmentation: annotationOptions.instanceSegmentationConfidence,
         pose: annotationOptions.poseConfidence,
         knife: annotationOptions.knifeConfidence,
     });
@@ -159,11 +159,11 @@ export const KnifeAttackImage = ({
 
     useEffect(() => {
         const previous = confidenceRef.current;
-        const changed = previous.segmentation !== annotationOptions.segmentationConfidence
+        const changed = previous.instanceSegmentation !== annotationOptions.instanceSegmentationConfidence
             || previous.pose !== annotationOptions.poseConfidence
             || previous.knife !== annotationOptions.knifeConfidence;
         confidenceRef.current = {
-            segmentation: annotationOptions.segmentationConfidence,
+            instanceSegmentation: annotationOptions.instanceSegmentationConfidence,
             pose: annotationOptions.poseConfidence,
             knife: annotationOptions.knifeConfidence,
         };
@@ -171,7 +171,7 @@ export const KnifeAttackImage = ({
     }, [
         annotationOptions.poseConfidence,
         annotationOptions.knifeConfidence,
-        annotationOptions.segmentationConfidence,
+        annotationOptions.instanceSegmentationConfidence,
         rerunPrediction,
     ]);
 

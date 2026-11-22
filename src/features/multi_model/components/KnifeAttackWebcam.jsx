@@ -9,7 +9,7 @@ import {
 import {KnifeAttackAnnotations} from "./KnifeAttackAnnotations.jsx";
 
 const IMAGE_ENDPOINT = `${API_URL}/api/multi_model/predict`;
-const MODELS = ["segmentation", "pose-estimation"];
+const MODELS = ["instance-segmentation", "pose-estimation"];
 const FRAME_INTERVAL_MS = 1000;
 
 export const KnifeAttackWebcam = ({

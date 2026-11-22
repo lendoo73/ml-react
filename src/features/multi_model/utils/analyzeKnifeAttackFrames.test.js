@@ -26,7 +26,7 @@ describe("knife attack frame analysis", () => {
             {
                 frame_index: 0,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(10, square(0, 0, 10, 10)),
                         person(20, square(30, 0, 40, 10)),
                         knife(square(12, 4, 14, 6)),
@@ -37,7 +37,7 @@ describe("knife attack frame analysis", () => {
             {
                 frame_index: 1,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(10, square(0, 0, 10, 10)),
                         person(20, square(30, 0, 40, 10)),
                         knife(square(32, 4, 34, 6)),
@@ -48,7 +48,7 @@ describe("knife attack frame analysis", () => {
             {
                 frame_index: 2,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(10, square(0, 0, 10, 10)),
                         person(20, square(30, 0, 40, 10)),
                         knife(square(32, 4, 34, 6)),
@@ -65,9 +65,9 @@ describe("knife attack frame analysis", () => {
         assert.equal(frames[1].behavior.attackDetected, true);
         assert.deepEqual(frames[1].behavior.attackedVictimTrackIds, []);
         assert.equal(frames[2].behavior.attackDetected, true);
-        assert.equal(frames[1].predictions.segmentation[0].behaviorRole, "victim");
-        assert.equal(frames[1].predictions.segmentation[1].behaviorRole, "attacker");
-        assert.equal(frames[1].predictions.segmentation[0].attackDetected, false);
+        assert.equal(frames[1].predictions["instance-segmentation"][0].behaviorRole, "victim");
+        assert.equal(frames[1].predictions["instance-segmentation"][1].behaviorRole, "attacker");
+        assert.equal(frames[1].predictions["instance-segmentation"][0].attackDetected, false);
         assert.deepEqual(frames[1].predictions["pose-estimation"], []);
     });
 
@@ -75,7 +75,7 @@ describe("knife attack frame analysis", () => {
         const frames = analyzeKnifeAttackFrames([
             {
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(1, square(0, 0, 10, 10)),
                         person(2, square(12, 0, 22, 10)),
                         knife(square(8, 4, 12, 6)),
@@ -93,12 +93,12 @@ describe("knife attack frame analysis", () => {
         assert.deepEqual(frames[0].behavior.attackedVictimTrackIds, [2]);
     });
 
-    it("uses combined object-detection boxes instead of segmentation knife masks", () => {
+    it("uses combined object-detection boxes instead of instance-segmentation knife masks", () => {
         const frames = analyzeKnifeAttackFrames([
             {
                 frame_index: 0,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(1, square(0, 0, 10, 10)),
                         person(2, square(30, 0, 40, 10)),
                         knife(square(32, 4, 34, 6)),
@@ -113,7 +113,7 @@ describe("knife attack frame analysis", () => {
             {
                 frame_index: 1,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(1, square(0, 0, 10, 10)),
                         person(2, square(30, 0, 40, 10)),
                         knife(square(12, 4, 14, 6)),
@@ -132,7 +132,7 @@ describe("knife attack frame analysis", () => {
         assert.equal(frames[1].behavior.attackerTrackId, 2);
         assert.equal(frames[1].behavior.attackDetected, true);
         assert.deepEqual(frames[1].behavior.victimTrackIds, [1]);
-        assert.deepEqual(frames[1].predictions.segmentation[2].polygon, square(30, 4, 32, 6));
+        assert.deepEqual(frames[1].predictions["instance-segmentation"][2].polygon, square(30, 4, 32, 6));
         assert.deepEqual(frames[1].predictions["object-detection"], [{
             class_name: "knife",
             confidence: 0.9,
@@ -143,7 +143,7 @@ describe("knife attack frame analysis", () => {
     it("selects roles from knife overlap and leaves unrelated people unlabeled in image analysis", () => {
         const frame = {
             predictions: {
-                segmentation: [
+                "instance-segmentation": [
                     person(1, square(0, 0, 20, 40)),
                     person(2, square(15, 0, 35, 40)),
                     person(3, square(100, 0, 120, 40)),
@@ -162,7 +162,7 @@ describe("knife attack frame analysis", () => {
         const [analyzed] = analyzeKnifeAttackFrames([frame], {
             requireKnifeOverlapForAttacker: true,
         });
-        const people = analyzed.predictions.segmentation.filter((item) => item.class_name === "person");
+        const people = analyzed.predictions["instance-segmentation"].filter((item) => item.class_name === "person");
 
         assert.equal(people[0].behaviorRole, "victim");
         assert.equal(people[1].behaviorRole, "attacker");
@@ -174,7 +174,7 @@ describe("knife attack frame analysis", () => {
     it("does not report an attack or assign roles when the knife is separate from people", () => {
         const [frame] = analyzeKnifeAttackFrames([{
             predictions: {
-                segmentation: [
+                "instance-segmentation": [
                     person(1, square(0, 0, 10, 10)),
                     person(2, square(30, 30, 40, 40)),
                 ],
@@ -185,7 +185,7 @@ describe("knife attack frame analysis", () => {
             },
         }], {requireKnifeOverlapForAttacker: true});
 
-        assert.equal(frame.predictions.segmentation[0].behaviorRole, null);
+        assert.equal(frame.predictions["instance-segmentation"][0].behaviorRole, null);
         assert.equal(frame.behavior.attackerTrackId, null);
         assert.deepEqual(frame.behavior.victimTrackIds, []);
         assert.equal(frame.behavior.attackDetected, false);
@@ -196,7 +196,7 @@ describe("knife attack frame analysis", () => {
             {
                 frame_index: 0,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(10, square(0, 0, 20, 40)),
                         person(20, square(40, 0, 60, 40)),
                         person(30, square(100, 0, 120, 40)),
@@ -210,7 +210,7 @@ describe("knife attack frame analysis", () => {
             {
                 frame_index: 1,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(10, square(0, 0, 20, 40)),
                         person(20, square(40, 0, 60, 40)),
                         person(30, square(100, 0, 120, 40)),
@@ -227,9 +227,9 @@ describe("knife attack frame analysis", () => {
             frames.map((frame) => frame.behavior.attackerTrackId),
             [10, 10],
         );
-        assert.equal(frames[1].predictions.segmentation[0].behaviorRole, "attacker");
-        assert.equal(frames[1].predictions.segmentation[1].behaviorRole, "victim");
-        assert.equal(frames[1].predictions.segmentation[2].behaviorRole, null);
+        assert.equal(frames[1].predictions["instance-segmentation"][0].behaviorRole, "attacker");
+        assert.equal(frames[1].predictions["instance-segmentation"][1].behaviorRole, "victim");
+        assert.equal(frames[1].predictions["instance-segmentation"][2].behaviorRole, null);
         assert.deepEqual(frames[1].behavior.victimTrackIds, [20]);
         assert.deepEqual(frames[1].behavior.attackedVictimTrackIds, [20]);
     });
@@ -239,7 +239,7 @@ describe("knife attack frame analysis", () => {
             {
                 frame_index: 324,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(2, square(1089, 507, 1251, 966)),
                         person(6, square(828, 549, 993, 1020)),
                     ],
@@ -257,7 +257,7 @@ describe("knife attack frame analysis", () => {
             ...[325, 326, 327].map((frameIndex) => ({
                 frame_index: frameIndex,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(2, square(1089, 507, 1251, 966)),
                         person(6, square(831, 549, 1020, 1017)),
                     ],
@@ -268,7 +268,7 @@ describe("knife attack frame analysis", () => {
             {
                 frame_index: 328,
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(2, square(1089, 507, 1251, 966)),
                         person(6, square(831, 549, 1020, 1017)),
                     ],
@@ -288,17 +288,17 @@ describe("knife attack frame analysis", () => {
         assert.equal(frames[0].behavior.attackerTrackId, null);
         assert.deepEqual(frames[0].behavior.victimTrackIds, []);
         assert.equal(frames[0].behavior.attackDetected, true);
-        assert.equal(frames[0].predictions.segmentation[0].behaviorRole, null);
-        assert.equal(frames[0].predictions.segmentation[1].behaviorRole, null);
-        assert.equal(frames[0].predictions.segmentation[0].attackDetected, false);
-        assert.equal(frames[0].predictions.segmentation[1].attackDetected, false);
+        assert.equal(frames[0].predictions["instance-segmentation"][0].behaviorRole, null);
+        assert.equal(frames[0].predictions["instance-segmentation"][1].behaviorRole, null);
+        assert.equal(frames[0].predictions["instance-segmentation"][0].attackDetected, false);
+        assert.equal(frames[0].predictions["instance-segmentation"][1].attackDetected, false);
         assert.deepEqual(frames.slice(1, 4).map(({behavior}) => behavior.attackDetected), [true, true, true]);
         assert.equal(frames[4].behavior.attackerTrackId, 6);
         assert.deepEqual(frames[4].behavior.victimTrackIds, [2]);
         assert.equal(frames[4].behavior.attackDetected, true);
-        assert.equal(frames[4].predictions.segmentation[1].behaviorRole, "attacker");
-        assert.equal(frames[4].predictions.segmentation[0].behaviorRole, "victim");
-        assert.equal(frames[4].predictions.segmentation[0].attackDetected, false);
+        assert.equal(frames[4].predictions["instance-segmentation"][1].behaviorRole, "attacker");
+        assert.equal(frames[4].predictions["instance-segmentation"][0].behaviorRole, "victim");
+        assert.equal(frames[4].predictions["instance-segmentation"][0].attackDetected, false);
         assert.deepEqual(frames[4].behavior.attackedVictimTrackIds, []);
     });
 
@@ -306,7 +306,7 @@ describe("knife attack frame analysis", () => {
         const makeFrame = (frameIndex, firstTrackId, secondTrackId, knifeBbox) => ({
             frame_index: frameIndex,
             predictions: {
-                segmentation: [
+                "instance-segmentation": [
                     person(firstTrackId, square(0, 0, 10, 10)),
                     person(secondTrackId, square(30, 0, 40, 10)),
                 ],
@@ -342,7 +342,7 @@ describe("knife attack frame analysis", () => {
         const frames = analyzeKnifeAttackFrames([
             {
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(1, square(0, 0, 10, 10)),
                         person(2, square(20, 0, 30, 10)),
                         person(3, square(40, 0, 50, 10)),
@@ -355,7 +355,7 @@ describe("knife attack frame analysis", () => {
             },
             {
                 predictions: {
-                    segmentation: [
+                    "instance-segmentation": [
                         person(1, square(0, 0, 10, 10)),
                         person(2, square(40, 0, 50, 10)),
                         person(3, square(20, 0, 30, 10)),
@@ -376,8 +376,8 @@ describe("knife attack frame analysis", () => {
             frames.map(({behavior}) => behavior.victimTrackIds),
             [[2], [3]],
         );
-        assert.equal(frames[1].predictions.segmentation[1].behaviorRole, null);
-        assert.equal(frames[1].predictions.segmentation[2].behaviorRole, "victim");
+        assert.equal(frames[1].predictions["instance-segmentation"][1].behaviorRole, null);
+        assert.equal(frames[1].predictions["instance-segmentation"][2].behaviorRole, "victim");
     });
 
     it("keeps standalone image and webcam knife detections compatible", () => {
@@ -390,7 +390,7 @@ describe("knife attack frame analysis", () => {
             },
         }]);
 
-        assert.deepEqual(frame.predictions.segmentation, [{
+        assert.deepEqual(frame.predictions["instance-segmentation"], [{
             class_name: "knife",
             bbox: {x_min: 12, y_min: 4, x_max: 14, y_max: 6},
             polygon: square(12, 4, 14, 6),
@@ -401,7 +401,7 @@ describe("knife attack frame analysis", () => {
     it("returns an empty list for missing or invalid frame collections", () => {
         assert.deepEqual(analyzeKnifeAttackFrames(null), []);
         assert.deepEqual(analyzeKnifeAttackFrames([null]), [{
-            predictions: { segmentation: [] },
+            predictions: { "instance-segmentation": [] },
             behavior: {
                 attackerTrackId: null,
                 victimTrackIds: [],

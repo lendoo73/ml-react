@@ -2,12 +2,12 @@ import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../context/useLanguage.js";
 import { ModelClassLabels } from "../../../components/ModelClassLabels.jsx";
-import { useSegmentationClassPreview } from "../hooks/useSegmentationClassPreview.js";
+import { useInstanceSegmentationClassPreview } from "../hooks/useInstanceSegmentationClassPreview.js";
 
-export const SegmentationClassBrowser = ({ model, inline = false }) => {
+export const InstanceSegmentationClassBrowser = ({ model, inline = false }) => {
     const Container = inline ? "div" : "section";
     const { t } = useLanguage();
-    const fetchPreview = useSegmentationClassPreview();
+    const fetchPreview = useInstanceSegmentationClassPreview();
     const [filter, setFilter] = useState("");
     const [preview, setPreview] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -27,8 +27,8 @@ export const SegmentationClassBrowser = ({ model, inline = false }) => {
             const { blob, sourceUrl } = await fetchPreview(model, className);
             setPreview({ className, url: URL.createObjectURL(blob), sourceUrl });
         } catch (previewError) {
-            console.error("Unable to load segmentation class preview:", previewError);
-            setError(model.info?.previewError ?? t("ui.segmentationPreviewError"));
+            console.error("Unable to load instance segmentation class preview:", previewError);
+            setError(model.info?.previewError ?? t("ui.instanceSegmentationPreviewError"));
         } finally {
             setIsLoading(false);
         }
@@ -38,9 +38,9 @@ export const SegmentationClassBrowser = ({ model, inline = false }) => {
         <Container className={inline ? "" : "rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"}>
             {!inline ? (
                 <div>
-                    <h2 className="text-xl font-semibold">{t("ui.segmentationClasses")}</h2>
+                    <h2 className="text-xl font-semibold">{t("ui.instanceSegmentationClasses")}</h2>
                     <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                        {t("ui.selectSegmentationClass")}
+                        {t("ui.selectInstanceSegmentationClass")}
                     </p>
                 </div>
             ) : null}
@@ -84,7 +84,7 @@ export const SegmentationClassBrowser = ({ model, inline = false }) => {
                 <div className="mt-6 border-t border-gray-200 pt-5 dark:border-gray-700">
                     <div className="mb-4 flex items-center justify-between gap-4">
                         <h3 className="text-lg font-semibold">
-                            {model.info?.previewTitle ?? t("ui.segmentationRandomPreview")}: {preview.className}
+                            {model.info?.previewTitle ?? t("ui.instanceSegmentationRandomPreview")}: {preview.className}
                         </h3>
                         <button
                             type="button"
@@ -104,7 +104,7 @@ export const SegmentationClassBrowser = ({ model, inline = false }) => {
                     >
                         <img
                             src={preview.url}
-                            alt={`${preview.className} ${model.info?.previewAlt ?? t("ui.segmentationPreviewAlt")}`}
+                            alt={`${preview.className} ${model.info?.previewAlt ?? t("ui.instanceSegmentationPreviewAlt")}`}
                             className="max-h-[36rem] w-full rounded-xl bg-black object-contain"
                         />
                     </a>

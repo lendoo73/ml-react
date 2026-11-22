@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useLanguage } from "../../../context/useLanguage.js";
-import { parseSegmentationEvaluationCsv } from "../utils/parseSegmentationEvaluationCsv.js";
+import { parseInstanceSegmentationEvaluationCsv } from "../utils/parseInstanceSegmentationEvaluationCsv.js";
 import { ConfusionMatrixTable } from "../../../components/ui/ConfusionMatrixTable.jsx";
 import { UnderConstruction } from "../../../components/ui/UnderConstruction.jsx";
 
 const formatPercent = (value) => `${(value * 100).toFixed(2)}%`;
 
-export const SegmentationEvaluation = ({ csvData, confusionMatrixData, tensorBoardUrl, underConstruction = false }) => {
+export const InstanceSegmentationEvaluation = ({ csvData, confusionMatrixData, tensorBoardUrl, underConstruction = false }) => {
     const { t } = useLanguage();
     const [isOpen, setIsOpen] = useState(false);
     const [matrixType, setMatrixType] = useState("counts");
-    const evaluation = underConstruction ? null : parseSegmentationEvaluationCsv(csvData);
+    const evaluation = underConstruction ? null : parseInstanceSegmentationEvaluationCsv(csvData);
     const hasCounts = Boolean(confusionMatrixData?.values);
     const hasNormalized = Boolean(confusionMatrixData?.normalizedValues);
     const metricGroups = evaluation ? [
@@ -25,7 +25,7 @@ export const SegmentationEvaluation = ({ csvData, confusionMatrixData, tensorBoa
             ],
         },
         {
-            title: t("ui.evaluationMasks"),
+            title: t("ui.instanceSegmentationMasks"),
             metrics: [
                 [t("ui.evaluationPrecision"), evaluation.maskPrecision],
                 [t("ui.evaluationRecall"), evaluation.maskRecall],
@@ -41,7 +41,7 @@ export const SegmentationEvaluation = ({ csvData, confusionMatrixData, tensorBoa
                 <button
                     type="button"
                     aria-expanded={isOpen}
-                    aria-controls="segmentation-evaluation-content"
+                    aria-controls="instance-segmentation-evaluation-content"
                     onClick={() => setIsOpen((open) => !open)}
                     className="flex min-h-10 flex-1 cursor-pointer items-center justify-between gap-3 rounded-lg text-left text-xl font-semibold text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:text-white"
                 >
@@ -66,7 +66,7 @@ export const SegmentationEvaluation = ({ csvData, confusionMatrixData, tensorBoa
                 ) : null}
             </div>
             {isOpen ? (
-                <div id="segmentation-evaluation-content" className="mt-5 space-y-6">
+                <div id="instance-segmentation-evaluation-content" className="mt-5 space-y-6">
                     {underConstruction ? <UnderConstruction /> : null}
                     {!underConstruction ? <>
                     <div className="grid gap-5 lg:grid-cols-2">

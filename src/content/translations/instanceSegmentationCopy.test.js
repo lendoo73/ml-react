@@ -13,12 +13,18 @@ const getInstanceSegmentationSection = (navigation) => (
 
 describe("YOLO26 instance segmentation copy", () => {
     it("distinguishes English instance segmentation from semantic segmentation", () => {
-        const model = englishModels["segmentation-placeholder"];
+        const model = englishModels["instance-segmentation-yolo26"];
         const section = getInstanceSegmentationSection(englishNavigation);
 
+        assert.deepEqual(section.items.map(({id}) => id), [
+            "instance-segmentation-yolo26",
+            "instance-segmentation-brain-tumor",
+            "instance-segmentation-pothole",
+        ]);
+        assert.equal(englishModels["segmentation-placeholder"], undefined);
         assert.equal(model.name, "Instance segmentation");
         assert.equal(section.name, "Instance Segmentation");
-        assert.equal(section.items[0].id, "segmentation-placeholder");
+        assert.equal(section.items[0].id, "instance-segmentation-yolo26");
         assert.match(section.items[0].name, /Instance Segmentation/);
         assert.match(model.hero.description, /pixel-level mask/i);
         assert.match(model.hero.description, /semantic segmentation/i);
@@ -29,9 +35,15 @@ describe("YOLO26 instance segmentation copy", () => {
     });
 
     it("provides matching French instance and semantic segmentation terminology", () => {
-        const model = frenchModels["segmentation-placeholder"];
+        const model = frenchModels["instance-segmentation-yolo26"];
         const section = getInstanceSegmentationSection(frenchNavigation);
 
+        assert.deepEqual(section.items.map(({id}) => id), [
+            "instance-segmentation-yolo26",
+            "instance-segmentation-brain-tumor",
+            "instance-segmentation-pothole",
+        ]);
+        assert.equal(frenchModels["segmentation-placeholder"], undefined);
         assert.equal(model.name, "Segmentation d’instances");
         assert.equal(section.name, "Segmentation d’instances");
         assert.match(section.items[0].name, /Segmentation d’instances/);

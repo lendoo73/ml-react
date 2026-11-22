@@ -5,29 +5,29 @@ import { SourceCards } from "../../../classification/components/sections/SourceC
 import { PredictVideo } from "../../../detection/components/PredictVideo.jsx";
 import { WebcamPredictor } from "../../../detection/components/WebcamPredictor.jsx";
 import { ModelInfoSection } from "../../../../components/ModelInfoSection.jsx";
-import { SegmentationClassBrowser } from "../../components/SegmentationClassBrowser.jsx";
-import { SegmentationEvaluation } from "../../components/SegmentationEvaluation.jsx";
-import { SegmentationImage } from "../../components/SegmentationImage.jsx";
+import { InstanceSegmentationClassBrowser } from "../../components/InstanceSegmentationClassBrowser.jsx";
+import { InstanceSegmentationEvaluation } from "../../components/InstanceSegmentationEvaluation.jsx";
+import { InstanceSegmentationImage } from "../../components/InstanceSegmentationImage.jsx";
 
-const POTHOLE_SEGMENTATION_CONFIG = {
-    apiPath: "segmentation",
+const POTHOLE_INSTANCE_SEGMENTATION_CONFIG = {
+    apiPath: "instance_segmentation",
     apiModel: "pothole",
     endpoints: { image: "predict", url: "predict", video: "predict/video" },
     fileFieldName: "source",
     queryParamName: "source",
     supportedInputs: ["image", "video", "webcam"],
-    resultType: "segmentation",
+    resultType: "instance-segmentation",
     classes: ["pothole"],
-    hero: { image: "/images/pothole_segmentation-sample.jpg" },
+    hero: { image: "/images/pothole_instance-segmentation-sample.jpg" },
     testImageDirectory: "/images/pothole_dataset/test/images",
     testImageManifest: "/images/pothole_dataset/test/images/index.json",
 };
 
-export const PotholeSegmentation = ({ model }) => {
+export const PotholeInstanceSegmentation = ({ model }) => {
     const pageModel = {
         ...model,
-        ...POTHOLE_SEGMENTATION_CONFIG,
-        hero: { ...model.hero, ...POTHOLE_SEGMENTATION_CONFIG.hero },
+        ...POTHOLE_INSTANCE_SEGMENTATION_CONFIG,
+        hero: { ...model.hero, ...POTHOLE_INSTANCE_SEGMENTATION_CONFIG.hero },
     };
     const [activeSourceId, setActiveSourceId] = useState("image");
     const sources = pageModel.supportedInputs.map((id) => ({
@@ -41,15 +41,15 @@ export const PotholeSegmentation = ({ model }) => {
             <Hero {...pageModel.hero} links={[]} />
             {pageModel.info ? (
                 <ModelInfoSection info={pageModel.info}>
-                    <SegmentationClassBrowser model={pageModel} inline />
+                    <InstanceSegmentationClassBrowser model={pageModel} inline />
                 </ModelInfoSection>
             ) : null}
-            <SegmentationEvaluation tensorBoardUrl="http://localhost:6006" underConstruction />
+            <InstanceSegmentationEvaluation tensorBoardUrl="http://localhost:6006" underConstruction />
             <SourceCards sources={sources} selectedSourceId={activeSourceId} onSelect={setActiveSourceId} />
-            {activeSourceId === "image" ? <SegmentationImage model={pageModel} /> : null}
+            {activeSourceId === "image" ? <InstanceSegmentationImage model={pageModel} /> : null}
             {activeSourceId === "video" ? <PredictVideo model={pageModel} /> : null}
             {activeSourceId === "webcam" ? (
-                <WebcamPredictor model={pageModel} isSegmentation />
+                <WebcamPredictor model={pageModel} isInstanceSegmentation />
             ) : null}
         </ClassificationPageLayout>
     );

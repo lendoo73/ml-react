@@ -83,13 +83,13 @@ const POSE_SKELETON_PAIRS = [
 ];
 
 export const drawIncidentAnnotations = (context, frame, labels, width, options = {}) => {
-    const segmentations = frame?.predictions?.segmentation ?? [];
-    segmentations.forEach((item) => {
+    const instances = frame?.predictions?.["instance-segmentation"] ?? [];
+    instances.forEach((item) => {
         const points = item?.polygon;
         if (!Array.isArray(points) || points.length < 3) return;
-        if ((item.confidence ?? 0) < (options.segmentationConfidence ?? 0)) return;
-        if (options.selectedSegmentationClasses
-            && !options.selectedSegmentationClasses.includes(item.class_name)) return;
+        if ((item.confidence ?? 0) < (options.instanceSegmentationConfidence ?? 0)) return;
+        if (options.selectedInstanceSegmentationClasses
+            && !options.selectedInstanceSegmentationClasses.includes(item.class_name)) return;
         const className = String(item.class_name ?? "").toLowerCase();
         const isAttacker = item.behaviorRole === "attacker";
         const isVictim = item.behaviorRole === "victim";

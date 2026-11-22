@@ -4,9 +4,9 @@ import { Hero } from "../../../classification/components/sections/Hero.jsx";
 import { SourceCards } from "../../../classification/components/sections/SourceCards.jsx";
 import { ModelInfoSection } from "../../../../components/ModelInfoSection.jsx";
 import { PatientScanPanel } from "../../components/PatientScanPanel.jsx";
-import { SegmentationClassBrowser } from "../../components/SegmentationClassBrowser.jsx";
-import { SegmentationEvaluation } from "../../components/SegmentationEvaluation.jsx";
-import { SegmentationImage } from "../../components/SegmentationImage.jsx";
+import { InstanceSegmentationClassBrowser } from "../../components/InstanceSegmentationClassBrowser.jsx";
+import { InstanceSegmentationEvaluation } from "../../components/InstanceSegmentationEvaluation.jsx";
+import { InstanceSegmentationImage } from "../../components/InstanceSegmentationImage.jsx";
 import evaluationCsv from "./evaluation/results.csv?raw";
 
 const confusionMatrixData = {
@@ -43,16 +43,16 @@ const confusionMatrixData = {
     ],
 };
 
-const BRAIN_TUMOR_SEGMENTATION_CONFIG = {
-    apiPath: "segmentation",
+const BRAIN_TUMOR_INSTANCE_SEGMENTATION_CONFIG = {
+    apiPath: "instance_segmentation",
     apiModel: "brain-tumor",
     endpoints: { image: "predict", url: "predict", batch: "predict/batch" },
     fileFieldName: "source",
     queryParamName: "source",
     supportedInputs: ["image", "patientScan"],
-    resultType: "segmentation",
+    resultType: "instance-segmentation",
     status: "ready",
-    hero: { image: "/images/brain_tumor_segmentation-sample.jpg" },
+    hero: { image: "/images/brain_tumor_instance-segmentation-sample.jpg" },
     sourceCardsEnabled: true,
     classPreviewEnabled: true,
     classPreviewInline: true,
@@ -76,12 +76,12 @@ const BRAIN_TUMOR_SEGMENTATION_CONFIG = {
     patientScanPanel: { sourceUrl: "https://www.cancerimagingarchive.net/dataset-explorer/" },
 };
 
-export const BrainTumorSegmentation = ({ model }) => {
+export const BrainTumorInstanceSegmentation = ({ model }) => {
     const pageModel = {
         ...model,
-        ...BRAIN_TUMOR_SEGMENTATION_CONFIG,
-        hero: { ...model.hero, ...BRAIN_TUMOR_SEGMENTATION_CONFIG.hero },
-        patientScanPanel: { ...model.patientScanPanel, ...BRAIN_TUMOR_SEGMENTATION_CONFIG.patientScanPanel },
+        ...BRAIN_TUMOR_INSTANCE_SEGMENTATION_CONFIG,
+        hero: { ...model.hero, ...BRAIN_TUMOR_INSTANCE_SEGMENTATION_CONFIG.hero },
+        patientScanPanel: { ...model.patientScanPanel, ...BRAIN_TUMOR_INSTANCE_SEGMENTATION_CONFIG.patientScanPanel },
     };
     const [activeSourceId, setActiveSourceId] = useState(pageModel.supportedInputs?.[0] ?? "image");
     const sources = pageModel.supportedInputs.map((id) => ({
@@ -96,22 +96,22 @@ export const BrainTumorSegmentation = ({ model }) => {
             {pageModel.info ? (
                 <ModelInfoSection info={pageModel.info}>
                     {pageModel.classPreviewInline ? (
-                        <SegmentationClassBrowser model={pageModel} inline />
+                        <InstanceSegmentationClassBrowser model={pageModel} inline />
                     ) : null}
                 </ModelInfoSection>
             ) : null}
-            <SegmentationEvaluation
+            <InstanceSegmentationEvaluation
                 csvData={evaluationCsv}
                 tensorBoardUrl="http://localhost:6006"
                 confusionMatrixData={confusionMatrixData}
             />
             {pageModel.classPreviewEnabled && !pageModel.classPreviewInline ? (
-                <SegmentationClassBrowser model={pageModel} />
+                <InstanceSegmentationClassBrowser model={pageModel} />
             ) : null}
             {pageModel.sourceCardsEnabled ? (
                 <SourceCards sources={sources} selectedSourceId={activeSourceId} onSelect={setActiveSourceId} />
             ) : null}
-            {activeSourceId === "image" ? <SegmentationImage model={pageModel} /> : null}
+            {activeSourceId === "image" ? <InstanceSegmentationImage model={pageModel} /> : null}
             {activeSourceId === "patientScan" ? <PatientScanPanel model={pageModel} /> : null}
         </ClassificationPageLayout>
     );

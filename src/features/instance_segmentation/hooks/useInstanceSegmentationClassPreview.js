@@ -22,18 +22,18 @@ const predictFromTestImage = async (model, className, { output = "image" } = {},
     const imageFile = new File([imageBlob], filename, { type: imageBlob.type || "image/jpeg" });
     const formData = new FormData();
     formData.append("source", imageFile);
-    const apiPath = model.apiPath ?? "segmentation";
+    const apiPath = model.apiPath ?? "instance_segmentation";
     const params = new URLSearchParams({ output, model: model.apiModel ?? "yolo26x-seg" });
     const endpoint = `${API_URL}/api/${apiPath}/predict?${params}`;
     const response = await fetch(endpoint, { method: "POST", body: formData });
-    if (!response.ok) throw new Error(`Segmentation prediction failed with status ${response.status}`);
+    if (!response.ok) throw new Error(`Instance-segmentation prediction failed with status ${response.status}`);
 
     return output === "json"
         ? { result: await response.json(), url: sourceUrl, file: imageFile, query: selectedClass }
         : { blob: await response.blob(), sourceUrl };
 };
 
-export const useSegmentationClassPreview = () => useCallback(async (model, className, options) => {
+export const useInstanceSegmentationClassPreview = () => useCallback(async (model, className, options) => {
     if (model.testImageDirectory && (model.testImageManifest || model.testImageClassCodes?.[className] || options?.output === "json")) {
         const testImages = model.testImageManifest
             ? await fetch(model.testImageManifest).then((response) => {
@@ -65,10 +65,10 @@ export const useSegmentationClassPreview = () => useCallback(async (model, class
         color_mode: "instance",
         model: model.apiModel ?? "yolo26x-seg",
     });
-    const apiPath = `${model.apiPath ?? "segmentation"}/predict`;
+    const apiPath = `${model.apiPath ?? "instance_segmentation"}/predict`;
     const response = await fetch(`${API_URL}/api/${apiPath}?${params.toString()}`);
     if (!response.ok) {
-        throw new Error(`Segmentation preview failed with status ${response.status}`);
+        throw new Error(`Instance-segmentation preview failed with status ${response.status}`);
     }
 
     return { blob: await response.blob(), sourceUrl };

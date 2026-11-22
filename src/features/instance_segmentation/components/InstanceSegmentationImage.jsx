@@ -5,7 +5,7 @@ import { useLanguage } from "../../../context/useLanguage.js";
 import { API_URL } from "../../../config/settings.js";
 import { getRandomImageUrl } from "../../../services/mediaService.js";
 import { sendFileToAPI } from "../../../utils/fileApi.js";
-import { useSegmentationClassPreview } from "../hooks/useSegmentationClassPreview.js";
+import { useInstanceSegmentationClassPreview } from "../hooks/useInstanceSegmentationClassPreview.js";
 
 const normalizeClassName = (className) => String(className ?? "")
     .toLowerCase()
@@ -18,8 +18,8 @@ const getConfiguredClassCode = (className, classCodes = {}) => (
     ))?.[1]
 );
 
-const matchesSelectedClass = (segmentation, selectedClass, classCodes) => {
-    const predictedClass = segmentation.class_name ?? segmentation.class;
+const matchesSelectedClass = (instance, selectedClass, classCodes) => {
+    const predictedClass = instance.class_name ?? instance.class;
     const selectedCode = getConfiguredClassCode(selectedClass, classCodes);
     const predictedCode = getConfiguredClassCode(predictedClass, classCodes);
 
@@ -28,9 +28,9 @@ const matchesSelectedClass = (segmentation, selectedClass, classCodes) => {
         : normalizeClassName(predictedClass) === normalizeClassName(selectedClass);
 };
 
-export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
+export const InstanceSegmentationImage = ({ model, onChange, onPredictionStart }) => {
     const { t } = useLanguage();
-    const fetchSegmentationClassPreview = useSegmentationClassPreview();
+    const fetchInstanceSegmentationClassPreview = useInstanceSegmentationClassPreview();
     const [result, setResult] = useState(null);
     const [file, setFile] = useState(null);
     const [imageUrl, setImageUrl] = useState("");
@@ -38,8 +38,8 @@ export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
     const [randomClass, setRandomClass] = useState("");
     const [isPredictionPending, setIsPredictionPending] = useState(false);
     const sourceRef = useRef(null);
-    const endpoint = `${API_URL}/api/${model.apiPath ?? "segmentation"}/predict`;
-    const segmentations = Array.isArray(result) ? result : [];
+    const endpoint = `${API_URL}/api/${model.apiPath ?? "instance_segmentation"}/predict`;
+    const instances = Array.isArray(result) ? result : [];
     const handleSourcePredictionStart = () => {
         setConfidenceThreshold(0.5);
         setIsPredictionPending(true);
@@ -63,7 +63,7 @@ export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
                 model: model.apiModel ?? "yolo26x-seg",
             })}`);
             const nextResult = await response.json();
-            if (!response.ok) throw new Error(nextResult?.detail ?? "Segmentation prediction failed.");
+            if (!response.ok) throw new Error(nextResult?.detail ?? "Instance-segmentation prediction failed.");
             handleResult(nextResult, imageUrl, "url");
         }
     };
@@ -117,12 +117,12 @@ export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
                 randomImageLoadingLabel={t("ui.loadingRandomImage")}
                 randomClassLabel={t("ui.randomClass")}
                 onRandomImage={() => model.testImageDirectory
-                    ? fetchSegmentationClassPreview(model, null, { output: "json" })
+                    ? fetchInstanceSegmentationClassPreview(model, null, { output: "json" })
                     : getRandomImageUrl(model)}
                 onRandomClassChange={setRandomClass}
                 randomClassMatched={randomClass
-                    ? segmentations.some((segmentation) => matchesSelectedClass(
-                        segmentation,
+                    ? instances.some((instance) => matchesSelectedClass(
+                        instance,
                         randomClass,
                         model.testImageClassCodes
                     ))
@@ -136,8 +136,8 @@ export const SegmentationImage = ({ model, onChange, onPredictionStart }) => {
                     image={file ?? imageUrl}
                     result={result}
                     countLabel={model.predictionLabel}
-                    count={segmentations.length}
-                    polygons={segmentations}
+                    count={instances.length}
+                    polygons={instances}
                     hideLabel={t("image.hideMasks")}
                     showLabel={t("image.showMasks")}
                     alt={t("image.uploaded")}

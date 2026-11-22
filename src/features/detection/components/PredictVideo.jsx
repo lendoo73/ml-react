@@ -83,9 +83,10 @@ const getDetectionCenter = (detection) => {
 
 export const PredictVideo = ({ model, supportsTracking = true, showHeader = true, showApiResponse = true, onResponseChange, onTrackingChange, randomVideoSearchTerms, randomVideoLabel, randomVideoHint, transformResult, drawCustomOverlay, renderSplitterOverlay, renderControlsPanel, onSplitterPointerMove, onSplitterPointerUp, onSplitterPointerCancel, defaultShowLabels = true, defaultShowConfidence = true }) => {
     const { t } = useLanguage();
-    const isSegmentation = model.resultType === "segmentation" || model.id === "segmentation-placeholder";
+    const isInstanceSegmentation = model.resultType === "instance-segmentation"
+        || model.id === "instance-segmentation-yolo26";
     const isOrientedBoundingBox = model.supportsOrientedBoxes ?? model.id === "yolo26-obb-official";
-    const endpointBase = `${API_URL}/api/${model.apiPath ?? (isSegmentation ? "segmentation" : "object_detection")}`;
+    const endpointBase = `${API_URL}/api/${model.apiPath ?? (isInstanceSegmentation ? "instance_segmentation" : "object_detection")}`;
     const videoEndpoint = `${endpointBase}/predict/video`;
     const videoUrlEndpoint = videoEndpoint;
     const videoFieldName = "source";
@@ -112,7 +113,7 @@ export const PredictVideo = ({ model, supportsTracking = true, showHeader = true
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [selectedClasses, setSelectedClasses] = useState([]);
     const [showBoxes, setShowBoxes] = useState(true);
-    const [showBoundaryBoxes, setShowBoundaryBoxes] = useState(!isSegmentation);
+    const [showBoundaryBoxes, setShowBoundaryBoxes] = useState(!isInstanceSegmentation);
     const [showOrientedBoxes, setShowOrientedBoxes] = useState(true);
     const [showLabels, setShowLabels] = useState(defaultShowLabels);
     const [showConfidence, setShowConfidence] = useState(defaultShowConfidence);
@@ -270,7 +271,7 @@ export const PredictVideo = ({ model, supportsTracking = true, showHeader = true
 
         const params = appendQueryParams(new URLSearchParams(), {
             ...model.queryParams,
-            model: model.apiModel ?? (isSegmentation ? "yolo26x-seg" : "yolo26x"),
+            model: model.apiModel ?? (isInstanceSegmentation ? "yolo26x-seg" : "yolo26x"),
             conf: String(nextThreshold),
             ...(supportsTracking ? { tracking: String(trackingEnabled), tracker: selectedTracker } : {}),
         });
@@ -652,7 +653,7 @@ export const PredictVideo = ({ model, supportsTracking = true, showHeader = true
                     onProgressChange={setVideoProgress}
                     queryParams={{
                         ...model.queryParams,
-                        model: model.apiModel ?? (isSegmentation ? "yolo26x-seg" : "yolo26x"),
+                        model: model.apiModel ?? (isInstanceSegmentation ? "yolo26x-seg" : "yolo26x"),
                         conf: String(confidenceThreshold),
                         ...(supportsTracking ? { tracking: String(tracking), tracker } : {}),
                     }}
@@ -678,8 +679,8 @@ export const PredictVideo = ({ model, supportsTracking = true, showHeader = true
                         queryParamName="source"
                         queryParams={{
                             ...model.queryParams,
-                            model: model.apiModel ?? (isSegmentation ? "yolo26x-seg" : "yolo26x"),
-                            ...(isSegmentation || model.id === "yolo26-detect-official" ? { output: "json" } : {}),
+                            model: model.apiModel ?? (isInstanceSegmentation ? "yolo26x-seg" : "yolo26x"),
+                            ...(isInstanceSegmentation || model.id === "yolo26-detect-official" ? { output: "json" } : {}),
                             conf: String(confidenceThreshold),
                             ...(supportsTracking ? { tracking: String(tracking), tracker } : {}),
                         }}
@@ -794,7 +795,7 @@ export const PredictVideo = ({ model, supportsTracking = true, showHeader = true
                                 {tracking ? <Checkbox checked={showTrajectory} onChange={(event) => setShowTrajectory(event.target.checked)} className="mt-2 text-xs"><span>{t("ui.trajectory")}</span></Checkbox> : null}
                                 <AnnotationSizeControl value={annotationSize} onChange={setAnnotationSize} />
                             </div>
-                            {isSegmentation ? (
+                            {isInstanceSegmentation ? (
                                 <div className="rounded-lg border border-gray-700 bg-gray-800 p-3 text-gray-100">
                                     <p className="mb-2 border-b border-gray-700 pb-2 text-center text-sm font-semibold">Annotation options</p>
                                     <Checkbox checked={showBoundaryBoxes} onChange={(event) => setShowBoundaryBoxes(event.target.checked)} className="mb-2 text-xs"><span>Boundary boxes</span></Checkbox>

@@ -19,7 +19,7 @@ import {SourceCards} from "../../../classification/components/sections/SourceCar
 import {KnifeAttackImage} from "../../components/KnifeAttackImage.jsx";
 import {KnifeAttackWebcam} from "../../components/KnifeAttackWebcam.jsx";
 
-const MODELS = ["segmentation", "pose-estimation", "object-detection"];
+const MODELS = ["instance-segmentation", "pose-estimation", "object-detection"];
 const KNIFE_MODEL = "knife";
 const DEFAULT_POSE_KEYPOINT_INDICES = [7, 8, 9, 10];
 const PEXELS_SEARCH_TERMS = [
@@ -30,7 +30,7 @@ const PEXELS_SEARCH_TERMS = [
     "attack other person with a knife",
 ];
 const MODEL_OPTIONS = {
-    segmentation: {
+    "instance-segmentation": {
         classes: ["person"],
         tracking: true,
     },
@@ -47,12 +47,15 @@ const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const VIDEO_ENDPOINT = `${API_URL}/api/multi_model/predict/video`;
 const KNIFE_IMAGE_ENDPOINT = `${API_URL}/api/object_detection/predict`;
 
-const createModelOptions = (segmentationConfidence, poseConfidence) => ({
-    segmentation: {...MODEL_OPTIONS.segmentation, conf: segmentationConfidence},
+const createModelOptions = (instanceSegmentationConfidence, poseConfidence) => ({
+    "instance-segmentation": {
+        ...MODEL_OPTIONS["instance-segmentation"],
+        conf: instanceSegmentationConfidence,
+    },
     "pose-estimation": {...MODEL_OPTIONS["pose-estimation"], conf: poseConfidence},
 });
-const createVideoModelOptions = (segmentationConfidence, poseConfidence, knifeConfidence) => JSON.stringify({
-    ...createModelOptions(segmentationConfidence, poseConfidence),
+const createVideoModelOptions = (instanceSegmentationConfidence, poseConfidence, knifeConfidence) => JSON.stringify({
+    ...createModelOptions(instanceSegmentationConfidence, poseConfidence),
     "object-detection": {...OBJECT_DETECTION_OPTIONS, conf: knifeConfidence},
 });
 
@@ -123,9 +126,9 @@ export const KnifeAttackDetection = ({model}) => {
     const [isPredicting, setIsPredicting] = useState(false);
     const [progress, setProgress] = useState(0);
     const [syncEnabled, setSyncEnabled] = useState(false);
-    const [segmentationConfidence, setSegmentationConfidence] = useState(0.5);
+    const [instanceSegmentationConfidence, setInstanceSegmentationConfidence] = useState(0.5);
     const [poseConfidence, setPoseConfidence] = useState(0.5);
-    const [selectedSegmentationClasses, setSelectedSegmentationClasses] = useState(["person", "knife"]);
+    const [selectedInstanceSegmentationClasses, setSelectedInstanceSegmentationClasses] = useState(["person", "knife"]);
     const [selectedKeypoints, setSelectedKeypoints] = useState(() => [...DEFAULT_POSE_KEYPOINT_INDICES]);
     const [showMasks, setShowMasks] = useState(true);
     const [showKeypoints, setShowKeypoints] = useState(true);
@@ -138,18 +141,18 @@ export const KnifeAttackDetection = ({model}) => {
     const [knifeConfidence, setKnifeConfidence] = useState(0.5);
     const imageModelOptions = useMemo(
         () => JSON.stringify({
-            ...createModelOptions(segmentationConfidence, poseConfidence),
+            ...createModelOptions(instanceSegmentationConfidence, poseConfidence),
             "object-detection": {model: KNIFE_MODEL, conf: knifeConfidence},
         }),
-        [knifeConfidence, poseConfidence, segmentationConfidence],
+        [instanceSegmentationConfidence, knifeConfidence, poseConfidence],
     );
     const webcamModelOptions = useMemo(
-        () => JSON.stringify(createModelOptions(segmentationConfidence, poseConfidence)),
-        [poseConfidence, segmentationConfidence],
+        () => JSON.stringify(createModelOptions(instanceSegmentationConfidence, poseConfidence)),
+        [instanceSegmentationConfidence, poseConfidence],
     );
     const videoModelOptions = useMemo(
-        () => createVideoModelOptions(segmentationConfidence, poseConfidence, knifeConfidence),
-        [knifeConfidence, poseConfidence, segmentationConfidence],
+        () => createVideoModelOptions(instanceSegmentationConfidence, poseConfidence, knifeConfidence),
+        [instanceSegmentationConfidence, knifeConfidence, poseConfidence],
     );
     const videoRef = useRef(null);
     const playerContainerRef = useRef(null);
@@ -209,19 +212,19 @@ export const KnifeAttackDetection = ({model}) => {
         ...roleLabels,
         videoAlt: model.videoLabels.videoAlt,
     }), [model.videoLabels.videoAlt, roleLabels]);
-    const segmentationCounts = useMemo(() => {
-        const segmentations = currentFrame?.predictions?.segmentation;
-        if (!Array.isArray(segmentations)) return {};
-        return segmentations.reduce((counts, item) => {
+    const instanceSegmentationCounts = useMemo(() => {
+        const instances = currentFrame?.predictions?.["instance-segmentation"];
+        if (!Array.isArray(instances)) return {};
+        return instances.reduce((counts, item) => {
             if (item.class_name) counts[item.class_name] = (counts[item.class_name] ?? 0) + 1;
             return counts;
         }, {});
     }, [currentFrame]);
     const annotationOptions = useMemo(() => ({
-        segmentationConfidence,
+        instanceSegmentationConfidence,
         poseConfidence,
         knifeConfidence,
-        selectedSegmentationClasses,
+        selectedInstanceSegmentationClasses,
         selectedKeypoints,
         showMasks,
         showKeypoints,
@@ -235,8 +238,8 @@ export const KnifeAttackDetection = ({model}) => {
         knifeConfidence,
         poseConfidence,
         selectedKeypoints,
-        selectedSegmentationClasses,
-        segmentationConfidence,
+        selectedInstanceSegmentationClasses,
+        instanceSegmentationConfidence,
         showConfidence,
         showKeypoints,
         showLabels,
@@ -246,15 +249,15 @@ export const KnifeAttackDetection = ({model}) => {
     ]);
     const modelSections = useMemo(() => ([
         {
-            id: "segmentation",
-            title: model.videoLabels.segmentationModel,
+            id: "instance-segmentation",
+            title: model.videoLabels.instanceSegmentationModel,
             content: (
                 <div className="space-y-2">
                     {["person", "knife"].map((className) => (
                         <Checkbox
                             key={className}
-                            checked={selectedSegmentationClasses.includes(className)}
-                            onChange={(event) => setSelectedSegmentationClasses((current) => (
+                            checked={selectedInstanceSegmentationClasses.includes(className)}
+                            onChange={(event) => setSelectedInstanceSegmentationClasses((current) => (
                                 event.target.checked
                                     ? [...current, className]
                                     : current.filter((value) => value !== className)
@@ -262,7 +265,7 @@ export const KnifeAttackDetection = ({model}) => {
                         >
                             <span className="flex-1">{className}</span>
                             <span aria-live="polite" className="tabular-nums">
-                                {segmentationCounts[className] ?? 0}
+                                {instanceSegmentationCounts[className] ?? 0}
                             </span>
                         </Checkbox>
                     ))}
@@ -320,9 +323,9 @@ export const KnifeAttackDetection = ({model}) => {
         currentFrame,
         model.email.frameLabel,
         model.videoLabels,
-        segmentationCounts,
+        instanceSegmentationCounts,
         selectedKeypoints,
-        selectedSegmentationClasses,
+        selectedInstanceSegmentationClasses,
     ]);
     const imageModelSections = useMemo(
         () => modelSections.filter((section) => section.id !== "frame-summary"),
@@ -578,15 +581,17 @@ export const KnifeAttackDetection = ({model}) => {
     ]);
 
     const handleConfidenceThresholdChange = useCallback((modelId, value) => {
-        const nextSegmentationConfidence = modelId === "segmentation" ? value : segmentationConfidence;
+        const nextInstanceSegmentationConfidence = modelId === "instance-segmentation"
+            ? value
+            : instanceSegmentationConfidence;
         const nextPoseConfidence = modelId === "pose-estimation" ? value : poseConfidence;
         const nextKnifeConfidence = modelId === "knife-detection" ? value : knifeConfidence;
-        if (modelId === "segmentation") setSegmentationConfidence(value);
+        if (modelId === "instance-segmentation") setInstanceSegmentationConfidence(value);
         if (modelId === "pose-estimation") setPoseConfidence(value);
         if (modelId === "knife-detection") setKnifeConfidence(value);
         if (activeSourceId === "video" && videoSource && Array.isArray(frames)) {
             void rerunVideoPrediction(
-                createVideoModelOptions(nextSegmentationConfidence, nextPoseConfidence, nextKnifeConfidence),
+                createVideoModelOptions(nextInstanceSegmentationConfidence, nextPoseConfidence, nextKnifeConfidence),
             );
         }
     }, [
@@ -595,15 +600,15 @@ export const KnifeAttackDetection = ({model}) => {
         knifeConfidence,
         poseConfidence,
         rerunVideoPrediction,
-        segmentationConfidence,
+        instanceSegmentationConfidence,
         videoSource,
     ]);
     const confidenceThresholds = useMemo(() => ([
         {
-            id: "segmentation",
-            label: model.videoLabels.segmentationConfidence,
-            value: segmentationConfidence,
-            onChange: (value) => handleConfidenceThresholdChange("segmentation", value),
+            id: "instance-segmentation",
+            label: model.videoLabels.instanceSegmentationConfidence,
+            value: instanceSegmentationConfidence,
+            onChange: (value) => handleConfidenceThresholdChange("instance-segmentation", value),
         },
         {
             id: "pose-estimation",
@@ -622,9 +627,9 @@ export const KnifeAttackDetection = ({model}) => {
         knifeConfidence,
         model.videoLabels.poseConfidence,
         model.videoLabels.knifeConfidence,
-        model.videoLabels.segmentationConfidence,
+        model.videoLabels.instanceSegmentationConfidence,
         poseConfidence,
-        segmentationConfidence,
+        instanceSegmentationConfidence,
     ]);
 
     const selectFrame = useCallback((frame, index) => {

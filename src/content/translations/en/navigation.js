@@ -65,20 +65,20 @@ export const navigation = [
                     name: "Instance Segmentation",
                     items: [
                         {
-                            id: "segmentation-placeholder",
+                            id: "instance-segmentation-yolo26",
                             name: "YOLO26 Instance Segmentation",
                             iconKey: "yolo26",
                             iconSrc: "/logos/yolo26-logo.svg",
                             activeIconSrc: "/logos/yolo26-logo-active.svg",
                         },
                         {
-                            id: "segmentation-brain-tumor",
-                            name: "Brain tumor segmentation",
+                            id: "instance-segmentation-brain-tumor",
+                            name: "Brain tumor instance segmentation",
                             iconKey: "instanceSegmentation",
                         },
                         {
-                            id: "segmentation-pothole",
-                            name: "Pothole segmentation",
+                            id: "instance-segmentation-pothole",
+                            name: "Pothole instance segmentation",
                             iconKey: "pothole",
                         },
                     ],

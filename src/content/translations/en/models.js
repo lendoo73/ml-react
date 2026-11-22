@@ -418,7 +418,7 @@ export const models = {
             },
             predictionLabel: "Predicted chest X-ray classes",
         },
-        "segmentation-placeholder": {
+        "instance-segmentation-yolo26": {
             name: "Instance segmentation",
             hero: {
                 imageAlt: "Soccer players with separate instance masks",
@@ -485,16 +485,16 @@ export const models = {
             },
             predictionLabel: "Detected instances",
         },
-        "segmentation-brain-tumor": {
-            name: "Brain tumor segmentation",
+        "instance-segmentation-brain-tumor": {
+            name: "Brain tumor instance segmentation",
             hero: {
-                imageAlt: "Brain MRI with a meningioma segmentation mask",
+                imageAlt: "Brain MRI with a meningioma instance-segmentation mask",
                 badge: "Custom-trained model",
-                title: "Brain tumor segmentation",
-                description: "Segment brain tumors in MRI scans with this custom-trained model. Upload an image or provide an image URL to inspect the predicted mask.",
+                title: "Brain tumor instance segmentation",
+                description: "Identify and outline each brain-tumor instance in MRI scans with this custom-trained model. Upload an image or provide an image URL to inspect the predicted mask.",
             },
             info: {
-                title: "About brain tumor segmentation",
+                title: "About brain tumor instance segmentation",
                 description: "This model identifies and outlines tumor regions in brain MRI images.",
                 classDescriptions: {
                     Glioma: "A tumor that develops from glial cells in the brain or spinal cord. Gliomas vary in type and grade.",
@@ -505,10 +505,10 @@ export const models = {
             mode: {
                 image: {
                     name: "Image",
-                    subheader: "Segment a brain tumor from an MRI image",
-                    uploadLabel: "Upload a brain MRI image",
+                    subheader: "Run instance segmentation on a brain MRI image",
+                    uploadLabel: "Upload a brain MRI image for instance segmentation",
                     chooseFile: "Choose image",
-                    description: "Upload an MRI image and inspect the predicted tumor segmentation mask.",
+                    description: "Upload an MRI image and inspect the predicted instance mask for each tumor region.",
                 },
                 patientScan: {
                     name: "Glioma scan",
@@ -517,13 +517,13 @@ export const models = {
             },
             patientScanPanel: {
                 title: "Patient brain scan",
-                description: "Load a random glioma patient scan and review its slice-by-slice segmentation.",
+                description: "Load a random glioma patient scan and review instance-segmentation results slice by slice.",
                 sourceAttribution: "Patient MRI data is provided by",
                 sourceLinkLabel: "The Cancer Imaging Archive (TCIA)",
                 startLabel: "Get a random glioma scan",
                 loadingScan: "Finding a glioma patient scan...",
                 downloading: "Downloading scan slices...",
-                predicting: "Running batch segmentation...",
+                predicting: "Running batch instance segmentation...",
                 errorLabel: "Patient scan failed",
                 patientLabel: "Patient",
                 collectionLabel: "Collection",
@@ -537,7 +537,7 @@ export const models = {
                 slicePositionLabel: "Scan slice position",
                 hideMasks: "Hide masks",
                 showMasks: "Show masks",
-                sliceAlt: "Patient brain scan slice with tumor segmentation",
+                sliceAlt: "Patient brain scan slice with tumor instance-segmentation masks",
                 sliceMissing: "No prediction was returned for this slice.",
                 responsesLabel: "API response",
                 responsesEmpty: "The API returned no per-slice predictions.",
@@ -546,47 +546,47 @@ export const models = {
             urlInput: {
                 label: "Enter image URL",
                 placeholder: "Enter image URL...",
-                buttonText: "Segment from URL",
+                buttonText: "Run instance segmentation from URL",
             },
-            predictionLabel: "Tumors segmented",
+            predictionLabel: "Tumor instances",
             classes: ["Glioma", "Meningioma", "Pituitary"],
         },
-        "segmentation-pothole": {
-            name: "Pothole segmentation",
+        "instance-segmentation-pothole": {
+            name: "Pothole instance segmentation",
             hero: {
-                imageAlt: "Road image with pothole segmentation masks",
+                imageAlt: "Road image with pothole instance-segmentation masks",
                 badge: "Custom-trained model",
-                title: "Pothole segmentation",
-                description: "Identify and outline potholes in road images and videos with this custom-trained segmentation model.",
+                title: "Pothole instance segmentation",
+                description: "Identify and outline each pothole instance in road images and videos with this custom-trained model.",
             },
             info: {
-                title: "About pothole segmentation",
-                description: "Select Pothole to preview an annotated road image, or provide an image, video, or webcam feed for segmentation.",
+                title: "About pothole instance segmentation",
+                description: "Select Pothole to preview an annotated road image, or provide an image, video, or webcam feed for instance segmentation.",
             },
             mode: {
                 image: {
                     name: "Image",
-                    subheader: "Segment potholes in an image",
-                    uploadLabel: "Upload a road image to segment potholes",
+                    subheader: "Run instance segmentation on road image",
+                    uploadLabel: "Upload a road image for pothole instance segmentation",
                     chooseFile: "Choose image",
                     description: "Upload an image and inspect each predicted pothole mask.",
                 },
                 video: {
                     name: "Video",
-                    subheader: "Segment potholes in a video",
-                    uploadLabel: "Upload a road video to segment potholes",
+                    subheader: "Run instance segmentation on road video",
+                    uploadLabel: "Upload a road video for pothole instance segmentation",
                     chooseVideo: "Choose video file",
                     description: "Process road footage and review pothole masks frame by frame.",
                 },
                 webcam: {
                     name: "Webcam",
-                    description: "Segment potholes from a live camera feed.",
+                    description: "Run pothole instance segmentation on a live camera feed.",
                 },
             },
             urlInput: {
                 label: "Enter image URL",
                 placeholder: "Enter image URL...",
-                buttonText: "Segment from URL",
+                buttonText: "Run instance segmentation from URL",
             },
             videoUrlInput: {
                 label: "Enter video URL",
@@ -602,7 +602,7 @@ export const models = {
                 imageLinkLabel: "Open Ultralytics pose estimation documentation",
                 badge: "Ultralytics official model",
                 title: "YOLO26 pose estimation",
-                description: "Unlike detection and segmentation, pose estimation does not just identify a person or outline a shape. It tracks the position of 17 body keypoints to infer how a person is posed: standing, sitting, kneeling, leaning, reaching, or even aggressive or abnormal postures. By analyzing joint angles, body tilt, and relative distances between keypoints, this model can estimate posture and motion patterns from a single image, video, or live webcam feed.",
+                description: "Unlike detection and instance segmentation, pose estimation does not just identify a person or outline a shape. It tracks the position of 17 body keypoints to infer how a person is posed: standing, sitting, kneeling, leaning, reaching, or even aggressive or abnormal postures. By analyzing joint angles, body tilt, and relative distances between keypoints, this model can estimate posture and motion patterns from a single image, video, or live webcam feed.",
             },
             links: [
                 {
@@ -716,7 +716,7 @@ export const models = {
             hero: {
                 badge: "Multi-model video analysis",
                 title: "Knife attack detection",
-                description: "Analyze images, videos, and live webcam footage with person/knife segmentation and pose estimation. Overlap-based results are provisional candidates for human review, not definitive decisions.",
+                description: "Analyze images, videos, and live webcam footage with person/knife instance segmentation and pose estimation. Overlap-based results are provisional candidates for human review, not definitive decisions.",
             },
             mode: {
                 image: {
@@ -788,9 +788,9 @@ export const models = {
                 currentFrame: "Current frame",
                 victims: "Possible victims",
                 showAnnotations: "Show role and attack annotations",
-                segmentationModel: "Person segmentation and knife detection",
+                instanceSegmentationModel: "Person instance segmentation and knife detection",
                 poseModel: "Pose estimation",
-                segmentationConfidence: "Segmentation confidence threshold",
+                instanceSegmentationConfidence: "Instance-segmentation confidence threshold",
                 poseConfidence: "Pose confidence threshold",
                 knifeConfidence: "Knife detection confidence threshold",
                 enterFullscreen: "Enter fullscreen",

@@ -7,6 +7,9 @@ description: "Frontend request conventions for the multi-model prediction API"
 
 - Read the backend OpenAPI description before changing the multi-model request
   contract. Keep `models` as repeated values, not a comma-separated string.
+- The instance-segmentation model key is `instance-segmentation` in `models`,
+  `model_options`, and keyed `predictions`. Do not use the former generic
+  `segmentation` key for this model; keep semantic segmentation separate.
 - For file uploads, send `POST` requests as `multipart/form-data`: append the
   media under `source`, append each selected model as a separate `models` field,
   and append `model_options` once as a JSON string keyed by model identifier.

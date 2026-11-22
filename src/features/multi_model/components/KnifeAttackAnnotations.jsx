@@ -2,9 +2,9 @@ import {useEffect, useRef} from "react";
 import {drawIncidentAnnotations} from "../utils/createIncidentScreenshot.js";
 
 const DEFAULT_ANNOTATION_OPTIONS = {
-    segmentationConfidence: 0.25,
+    instanceSegmentationConfidence: 0.25,
     poseConfidence: 0.25,
-    selectedSegmentationClasses: ["person", "knife"],
+    selectedInstanceSegmentationClasses: ["person", "knife"],
     showMasks: true,
     showKeypoints: true,
     showSkeleton: true,

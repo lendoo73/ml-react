@@ -65,20 +65,20 @@ export const navigation = [
                     name: "Segmentation d’instances",
                     items: [
                         {
-                            id: "segmentation-placeholder",
+                            id: "instance-segmentation-yolo26",
                             name: "Segmentation d’instances YOLO26",
                             iconKey: "yolo26",
                             iconSrc: "/logos/yolo26-logo.svg",
                             activeIconSrc: "/logos/yolo26-logo-active.svg",
                         },
                         {
-                            id: "segmentation-brain-tumor",
-                            name: "Segmentation de tumeurs cérébrales",
+                            id: "instance-segmentation-brain-tumor",
+                            name: "Segmentation d’instances de tumeurs cérébrales",
                             iconKey: "instanceSegmentation",
                         },
                         {
-                            id: "segmentation-pothole",
-                            name: "Segmentation des nids-de-poule",
+                            id: "instance-segmentation-pothole",
+                            name: "Segmentation d’instances des nids-de-poule",
                             iconKey: "pothole",
                         },
                     ],

@@ -22,11 +22,11 @@ import { PoseImage } from "../features/pose/components/PoseImage.jsx";
 import { PoseVideo } from "../features/pose/components/PoseVideo.jsx";
 import { PoseWebcam } from "../features/pose/components/PoseWebcam.jsx";
 import { PosePredictionResult } from "../features/pose/components/PosePredictionResult.jsx";
-import { SegmentationImage } from "../features/instance_segmentation/components/SegmentationImage.jsx";
-import { BrainTumorSegmentation } from "../features/instance_segmentation/pages/brain_tumor/BrainTumorSegmentation.jsx";
-import { PotholeSegmentation } from "../features/instance_segmentation/pages/pothole/PotholeSegmentation.jsx";
-import { Yolo26Segmentation } from "../features/instance_segmentation/pages/yolo26/Yolo26Segmentation.jsx";
-import { useSegmentationClassPreview } from "../features/instance_segmentation/hooks/useSegmentationClassPreview.js";
+import { InstanceSegmentationImage } from "../features/instance_segmentation/components/InstanceSegmentationImage.jsx";
+import { BrainTumorInstanceSegmentation } from "../features/instance_segmentation/pages/brain_tumor/BrainTumorInstanceSegmentation.jsx";
+import { PotholeInstanceSegmentation } from "../features/instance_segmentation/pages/pothole/PotholeInstanceSegmentation.jsx";
+import { Yolo26InstanceSegmentation } from "../features/instance_segmentation/pages/yolo26/Yolo26InstanceSegmentation.jsx";
+import { useInstanceSegmentationClassPreview } from "../features/instance_segmentation/hooks/useInstanceSegmentationClassPreview.js";
 import { getRandomImageUrl } from "../services/mediaService.js";
 import { KnifeAttackDetection } from "../features/multi_model/pages/knife_attack/KnifeAttackDetection.jsx";
 
@@ -79,7 +79,7 @@ export const ModelWorkspace = ({ model }) => {
 const ModelWorkspaceContent = ({ model }) => {
     const { t } = useLanguage();
     const fetchDetectionClassPreview = useDetectionClassPreview();
-    const fetchSegmentationClassPreview = useSegmentationClassPreview();
+    const fetchInstanceSegmentationClassPreview = useInstanceSegmentationClassPreview();
     const [activeTabId, setActiveTabId] = useState(getInitialTabId(model));
     const [previewImage, setPreviewImage] = useState(null);
     const [showClasses, setShowClasses] = useState(false);
@@ -127,7 +127,7 @@ const ModelWorkspaceContent = ({ model }) => {
     const filteredClassList = classList.filter((entry) => (
         entry.toLowerCase().includes(classFilter.trim().toLowerCase())
     ));
-    const showClassBrowser = ["detection", "segmentation", "pose"].includes(resultType)
+    const showClassBrowser = ["detection", "instance-segmentation", "pose"].includes(resultType)
         && Array.isArray(classList)
         && classList.length > 0;
     const loadRandomPosePreview = useCallback(async () => {
@@ -175,8 +175,8 @@ const ModelWorkspaceContent = ({ model }) => {
         });
 
         try {
-            if (resultType === "segmentation") {
-                const { blob, sourceUrl } = await fetchSegmentationClassPreview(model, className);
+            if (resultType === "instance-segmentation") {
+                const { blob, sourceUrl } = await fetchInstanceSegmentationClassPreview(model, className);
                 const nextPreviewUrl = URL.createObjectURL(blob);
                 setPreviewUrl((currentPreviewUrl) => {
                     if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
@@ -238,16 +238,16 @@ const ModelWorkspaceContent = ({ model }) => {
     }
 
 
-    if (model.id === "segmentation-placeholder") {
-        return <Yolo26Segmentation model={model} />;
+    if (model.id === "instance-segmentation-yolo26") {
+        return <Yolo26InstanceSegmentation model={model} />;
     }
 
-    if (model.id === "segmentation-brain-tumor") {
-        return <BrainTumorSegmentation model={model} />;
+    if (model.id === "instance-segmentation-brain-tumor") {
+        return <BrainTumorInstanceSegmentation model={model} />;
     }
 
-    if (model.id === "segmentation-pothole") {
-        return <PotholeSegmentation model={model} />;
+    if (model.id === "instance-segmentation-pothole") {
+        return <PotholeInstanceSegmentation model={model} />;
     }
 
     if (model.status === "placeholder") {
@@ -443,10 +443,10 @@ const ModelWorkspaceContent = ({ model }) => {
                     })}
                 </div>
 
-                <div className={activeTabId === "video" || (activeTabId === "image" && ["detection", "segmentation"].includes(resultType)) ? "" : "rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"}>
+                <div className={activeTabId === "video" || (activeTabId === "image" && ["detection", "instance-segmentation"].includes(resultType)) ? "" : "rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"}>
                     {activeTabId === "image" ? (
-                        resultType === "segmentation"
-                            ? <SegmentationImage model={model} onChange={handleResultChange} />
+                        resultType === "instance-segmentation"
+                            ? <InstanceSegmentationImage model={model} onChange={handleResultChange} />
                             : resultType === "pose"
                                 ? <PoseImage model={model} previewSearchTerms={POSE_PREVIEW_SEARCH_TERMS} onChange={handleResultChange} />
                                 : <PredictImage model={model} onChange={handleResultChange} previewImage={previewImage} />
@@ -462,7 +462,7 @@ const ModelWorkspaceContent = ({ model }) => {
                         getSupportedInputs(model).includes("webcam")
                             ? resultType === "pose"
                                 ? <PoseWebcam model={model} />
-                                : <WebcamPredictor model={model} isSegmentation={resultType === "segmentation"} />
+                                : <WebcamPredictor model={model} isInstanceSegmentation={resultType === "instance-segmentation"} />
                             : <p className="text-sm text-gray-500 dark:text-gray-400">{t("ui.modeUnavailable")}</p>
                     ) : null}
                 </div>

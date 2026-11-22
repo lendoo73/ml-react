@@ -37,9 +37,9 @@ const labels = {
 };
 
 const options = {
-    segmentationConfidence: 0,
+    instanceSegmentationConfidence: 0,
     poseConfidence: 0,
-    selectedSegmentationClasses: ["person"],
+    selectedInstanceSegmentationClasses: ["person"],
     showMasks: false,
     showSkeleton: false,
     showKeypoints: false,
@@ -54,7 +54,7 @@ describe("knife attack annotation labels", () => {
         const {context, labels: drawnLabels, roundedRects} = createContext();
         drawIncidentAnnotations(context, {
             predictions: {
-                segmentation: [{
+                "instance-segmentation": [{
                     class_name: "person",
                     confidence: 0.9,
                     track_id: 11,
@@ -79,7 +79,7 @@ describe("knife attack annotation labels", () => {
         const {context, labels: drawnLabels} = createContext();
         drawIncidentAnnotations(context, {
             predictions: {
-                segmentation: [{
+                "instance-segmentation": [{
                     class_name: "person",
                     track_id: 11,
                     polygon: [[20, 20], [80, 20], [80, 100]],
@@ -124,7 +124,7 @@ describe("knife attack annotation labels", () => {
         const {context, labels: drawnLabels} = createContext();
         drawIncidentAnnotations(context, {
             predictions: {
-                segmentation: [
+                "instance-segmentation": [
                     {
                         class_name: "person",
                         track_id: 11,

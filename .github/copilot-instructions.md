@@ -2,7 +2,7 @@
 
 This repository is a Vite React frontend for machine-learning inference workflows.
 It provides a shared workspace for computer-vision tasks such as detection and
-classification, with planned support for segmentation, pose estimation, OBB,
+classification, with support for instance segmentation, pose estimation, OBB,
 semantic segmentation, and depth estimation.
 
 ## Architecture and ownership

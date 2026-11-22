@@ -421,7 +421,7 @@ export const models = {
             },
             predictionLabel: "Classes prédites de radiographie thoracique",
         },
-        "segmentation-placeholder": {
+        "instance-segmentation-yolo26": {
             name: "Segmentation d’instances",
             hero: {
                 imageAlt: "Image d’exemple avec des masques distincts de segmentation d’instances",
@@ -451,16 +451,16 @@ export const models = {
             predictionLabel: "Instances détectées",
             classes: ["personne", "bicyclette", "voiture", "moto", "avion", "bus", "train", "camion", "bateau", "oiseau", "chat", "chien", "cheval", "mouton", "vache", "éléphant", "ours", "zèbre", "girafe", "sac à dos", "parapluie", "sac à main", "cravate", "valise", "bouteille", "chaise", "canapé", "plante en pot", "lit", "table à manger", "télévision", "ordinateur portable", "souris", "clavier", "téléphone portable", "livre", "horloge", "vase", "ciseaux", "ours en peluche", "brosse à dents"],
         },
-        "segmentation-brain-tumor": {
-            name: "Segmentation de tumeurs cérébrales",
+        "instance-segmentation-brain-tumor": {
+            name: "Segmentation d’instances de tumeurs cérébrales",
             hero: {
-                imageAlt: "IRM cérébrale avec masque de segmentation d’un méningiome",
+                imageAlt: "IRM cérébrale avec masque de segmentation d’instances d’un méningiome",
                 badge: "Modèle entraîné sur mesure",
-                title: "Segmentation de tumeurs cérébrales",
-                description: "Segmentez les tumeurs cérébrales sur des images IRM avec ce modèle personnalisé. Importez une image ou indiquez une URL pour examiner le masque prédit.",
+                title: "Segmentation d’instances de tumeurs cérébrales",
+                description: "Identifiez et délimitez chaque instance tumorale sur des images IRM avec ce modèle personnalisé. Importez une image ou indiquez une URL pour examiner le masque prédit.",
             },
             info: {
-                title: "À propos de la segmentation des tumeurs cérébrales",
+                title: "À propos de la segmentation d’instances des tumeurs cérébrales",
                 description: "Ce modèle identifie et délimite les régions tumorales sur les images IRM cérébrales.",
                 classDescriptions: {
                     Glioma: "Tumeur qui se développe à partir des cellules gliales du cerveau ou de la moelle épinière. Les gliomes varient en type et en grade.",
@@ -471,10 +471,10 @@ export const models = {
             mode: {
                 image: {
                     name: "Image",
-                    subheader: "Segmenter une tumeur cérébrale sur une IRM",
-                    uploadLabel: "Importer une image IRM cérébrale",
+                    subheader: "Segmenter les instances tumorales sur une IRM",
+                    uploadLabel: "Importer une IRM pour la segmentation d’instances tumorales",
                     chooseFile: "Choisir une image",
-                    description: "Importez une image IRM et examinez le masque de segmentation prédit.",
+                    description: "Importez une IRM et examinez le masque d’instance prédit pour chaque région tumorale.",
                 },
                 patientScan: {
                     name: "Examen de gliome",
@@ -483,13 +483,13 @@ export const models = {
             },
             patientScanPanel: {
                 title: "Examen cérébral du patient",
-                description: "Chargez un examen aléatoire d’un patient atteint de gliome et consultez sa segmentation tranche par tranche.",
+                description: "Chargez un examen aléatoire d’un patient atteint de gliome et consultez les résultats de segmentation d’instances tranche par tranche.",
                 sourceAttribution: "Les données IRM du patient proviennent de",
                 sourceLinkLabel: "The Cancer Imaging Archive (TCIA)",
                 startLabel: "Obtenir un examen aléatoire de gliome",
                 loadingScan: "Recherche d’un examen de patient atteint de gliome...",
                 downloading: "Téléchargement des coupes de l’examen...",
-                predicting: "Segmentation par lots en cours...",
+                predicting: "Segmentation d’instances par lots en cours...",
                 errorLabel: "Échec de l’examen patient",
                 patientLabel: "Patient",
                 collectionLabel: "Collection",
@@ -503,7 +503,7 @@ export const models = {
                 slicePositionLabel: "Position de la coupe",
                 hideMasks: "Masquer les masques",
                 showMasks: "Afficher les masques",
-                sliceAlt: "Coupe d’un examen cérébral avec segmentation de tumeur",
+                sliceAlt: "Coupe d’un examen cérébral avec masques de segmentation d’instances tumorales",
                 sliceMissing: "Aucune prédiction n’a été renvoyée pour cette coupe.",
                 responsesLabel: "Réponse de l’API",
                 responsesEmpty: "L’API n’a renvoyé aucune prédiction par coupe.",
@@ -512,47 +512,47 @@ export const models = {
             urlInput: {
                 label: "Saisir l’URL de l’image",
                 placeholder: "Saisir l’URL de l’image…",
-                buttonText: "Segmenter depuis l’URL",
+                buttonText: "Lancer la segmentation d’instances depuis l’URL",
             },
-            predictionLabel: "Tumeurs segmentées",
+            predictionLabel: "Instances tumorales",
             classes: ["Gliome", "Méningiome", "Hypophyse"],
         },
-        "segmentation-pothole": {
-            name: "Segmentation des nids-de-poule",
+        "instance-segmentation-pothole": {
+            name: "Segmentation d’instances des nids-de-poule",
             hero: {
-                imageAlt: "Image de route avec des masques de segmentation de nids-de-poule",
+                imageAlt: "Image de route avec des masques de segmentation d’instances de nids-de-poule",
                 badge: "Modèle entraîné sur mesure",
-                title: "Segmentation des nids-de-poule",
-                description: "Identifiez et délimitez les nids-de-poule dans des images et vidéos routières avec ce modèle de segmentation personnalisé.",
+                title: "Segmentation d’instances des nids-de-poule",
+                description: "Identifiez et délimitez chaque nid-de-poule dans des images et vidéos routières avec ce modèle personnalisé.",
             },
             info: {
-                title: "À propos de la segmentation des nids-de-poule",
-                description: "Sélectionnez Nid-de-poule pour afficher un aperçu annoté d’une route, ou fournissez une image, une vidéo ou un flux webcam pour lancer la segmentation.",
+                title: "À propos de la segmentation d’instances des nids-de-poule",
+                description: "Sélectionnez Nid-de-poule pour afficher un aperçu annoté d’une route, ou fournissez une image, une vidéo ou un flux webcam pour lancer la segmentation d’instances.",
             },
             mode: {
                 image: {
                     name: "Image",
-                    subheader: "Segmenter les nids-de-poule dans une image",
-                    uploadLabel: "Importer une image de route pour segmenter les nids-de-poule",
+                    subheader: "Segmenter les instances de nids-de-poule dans une image",
+                    uploadLabel: "Importer une image de route pour la segmentation d’instances des nids-de-poule",
                     chooseFile: "Choisir une image",
                     description: "Importez une image et examinez chaque masque de nid-de-poule prédit.",
                 },
                 video: {
                     name: "Vidéo",
-                    subheader: "Segmenter les nids-de-poule dans une vidéo",
-                    uploadLabel: "Importer une vidéo de route pour segmenter les nids-de-poule",
+                    subheader: "Segmenter les instances de nids-de-poule dans une vidéo",
+                    uploadLabel: "Importer une vidéo de route pour la segmentation d’instances des nids-de-poule",
                     chooseVideo: "Choisir un fichier vidéo",
                     description: "Analysez une vidéo de route et consultez les masques image par image.",
                 },
                 webcam: {
                     name: "Webcam",
-                    description: "Segmentez les nids-de-poule depuis une caméra en direct.",
+                    description: "Lancez la segmentation d’instances des nids-de-poule depuis une caméra en direct.",
                 },
             },
             urlInput: {
                 label: "Saisir l’URL de l’image",
                 placeholder: "Saisir l’URL de l’image…",
-                buttonText: "Segmenter depuis l’URL",
+                buttonText: "Lancer la segmentation d’instances depuis l’URL",
             },
             videoUrlInput: {
                 label: "Saisir l’URL de la vidéo",
@@ -568,7 +568,7 @@ export const models = {
                 imageLinkLabel: "Ouvrir la documentation Ultralytics sur l’estimation de pose",
                 badge: "Modèle officiel Ultralytics",
                 title: "Estimation de pose YOLO26",
-                description: "Contrairement à la détection ou à la segmentation, l’estimation de pose ne se contente pas d’identifier une personne ou de dessiner sa forme. Elle suit la position de 17 points clés du corps pour inférer la posture d’une personne : debout, assise, accroupie, penchée, en train d’étendre les bras, ou même une posture anormale ou agressive. En analysant les angles des articulations, l’inclinaison du corps et les distances relatives entre les points clés, le modèle peut estimer la posture et les mouvements à partir d’une image, d’une vidéo ou d’une webcam en direct.",
+                description: "Contrairement à la détection ou à la segmentation d’instances, l’estimation de pose ne se contente pas d’identifier une personne ou de dessiner sa forme. Elle suit la position de 17 points clés du corps pour inférer la posture d’une personne : debout, assise, accroupie, penchée, en train d’étendre les bras, ou même une posture anormale ou agressive. En analysant les angles des articulations, l’inclinaison du corps et les distances relatives entre les points clés, le modèle peut estimer la posture et les mouvements à partir d’une image, d’une vidéo ou d’une webcam en direct.",
             },
             links: [
                 {
@@ -658,7 +658,7 @@ export const models = {
             hero: {
                 badge: "Analyse vidéo multi-modèle",
                 title: "Détection d’attaque au couteau",
-                description: "Analysez des images, des vidéos et des images de webcam en direct avec la segmentation des personnes et des couteaux ainsi que l’estimation de pose. Les résultats fondés sur le chevauchement sont des alertes provisoires à vérifier, pas des décisions définitives.",
+                description: "Analysez des images, des vidéos et des images de webcam en direct avec la segmentation d’instances des personnes et des couteaux ainsi que l’estimation de pose. Les résultats fondés sur le chevauchement sont des alertes provisoires à vérifier, pas des décisions définitives.",
             },
             mode: {
                 image: {
@@ -730,9 +730,9 @@ export const models = {
                 currentFrame: "Image actuelle",
                 victims: "Victimes possibles",
                 showAnnotations: "Afficher les annotations de rôle et d’attaque",
-                segmentationModel: "Segmentation des personnes et détection de couteaux",
+                instanceSegmentationModel: "Segmentation d’instances des personnes et détection de couteaux",
                 poseModel: "Estimation de pose",
-                segmentationConfidence: "Seuil de confiance de segmentation",
+                instanceSegmentationConfidence: "Seuil de confiance de segmentation d’instances",
                 poseConfidence: "Seuil de confiance de pose",
                 knifeConfidence: "Seuil de confiance de détection de couteaux",
                 enterFullscreen: "Passer en plein écran",

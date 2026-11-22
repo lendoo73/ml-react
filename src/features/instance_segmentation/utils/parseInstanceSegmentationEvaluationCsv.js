@@ -4,10 +4,10 @@
  * @param {string} csv - CSV text containing epoch and validation metric columns.
  * @returns {{epochs: number, boxPrecision: number, boxRecall: number, boxMap50: number, boxMap5095: number, maskPrecision: number, maskRecall: number, maskMap50: number, maskMap5095: number} | null} Final metrics, or null when required data is missing or invalid.
  * @example
- * const metrics = parseSegmentationEvaluationCsv(resultsCsv);
+ * const metrics = parseInstanceSegmentationEvaluationCsv(resultsCsv);
  * // metrics.maskMap50 is the final validation mask mAP at IoU 0.50.
  */
-export const parseSegmentationEvaluationCsv = (csv) => {
+export const parseInstanceSegmentationEvaluationCsv = (csv) => {
     if (typeof csv !== "string" || !csv.trim()) return null;
 
     const [headerLine, ...dataLines] = csv.trim().split(/\r?\n/);
