@@ -19,7 +19,8 @@ import {SourceCards} from "../../../classification/components/sections/SourceCar
 import {KnifeAttackImage} from "../../components/KnifeAttackImage.jsx";
 import {KnifeAttackWebcam} from "../../components/KnifeAttackWebcam.jsx";
 
-const MODELS = ["segmentation", "pose-estimation"];
+const MODELS = ["segmentation", "pose-estimation", "object-detection"];
+const KNIFE_MODEL = "knife";
 const DEFAULT_POSE_KEYPOINT_INDICES = [7, 8, 9, 10];
 const PEXELS_SEARCH_TERMS = [
     "fight with a knife",
@@ -30,20 +31,48 @@ const PEXELS_SEARCH_TERMS = [
 ];
 const MODEL_OPTIONS = {
     segmentation: {
-        classes: ["person", "knife"],
+        classes: ["person"],
         tracking: true,
     },
     "pose-estimation": {
         tracking: true,
     },
 };
+const OBJECT_DETECTION_OPTIONS = {
+    model: KNIFE_MODEL,
+    tracking: true,
+    tracker: "bytetrack",
+};
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const VIDEO_ENDPOINT = `${API_URL}/api/multi_model/predict/video`;
+const KNIFE_IMAGE_ENDPOINT = `${API_URL}/api/object_detection/predict`;
 
-const createModelOptions = (segmentationConfidence, poseConfidence) => JSON.stringify({
+const createModelOptions = (segmentationConfidence, poseConfidence) => ({
     segmentation: {...MODEL_OPTIONS.segmentation, conf: segmentationConfidence},
     "pose-estimation": {...MODEL_OPTIONS["pose-estimation"], conf: poseConfidence},
 });
+const createVideoModelOptions = (segmentationConfidence, poseConfidence, knifeConfidence) => JSON.stringify({
+    ...createModelOptions(segmentationConfidence, poseConfidence),
+    "object-detection": {...OBJECT_DETECTION_OPTIONS, conf: knifeConfidence},
+});
+
+const RecipientEmailInput = ({email, value, onChange}) => (
+    <div className="flex w-full flex-col items-center text-center">
+        <label htmlFor="knife-attack-recipient"
+               className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+            {email.recipientLabel}
+        </label>
+        <input
+            id="knife-attack-recipient"
+            type="email"
+            autoComplete="email"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={email.recipientPlaceholder}
+            className="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+        />
+    </div>
+);
 
 const readVideoResponse = async (response, labels) => {
     const body = await response.json().catch(() => null);
@@ -53,6 +82,12 @@ const readVideoResponse = async (response, labels) => {
             : body?.detail;
         throw new Error(detail || `${labels.requestError} (${response.status})`);
     }
+    return body;
+};
+
+const readKnifeDetections = async (response, labels) => {
+    const body = await readVideoResponse(response, labels);
+    if (!Array.isArray(body)) throw new Error(labels.invalidResponse);
     return body;
 };
 
@@ -78,6 +113,7 @@ export const KnifeAttackDetection = ({model}) => {
     const [recipient, setRecipient] = useState("");
     const [emailText, setEmailText] = useState("");
     const [screenshotBlob, setScreenshotBlob] = useState(null);
+    const [screenshotEventKey, setScreenshotEventKey] = useState("");
     const [screenshotUrl, setScreenshotUrl] = useState("");
     const [requestError, setRequestError] = useState("");
     const [screenshotError, setScreenshotError] = useState("");
@@ -99,29 +135,80 @@ export const KnifeAttackDetection = ({model}) => {
     const [showIds, setShowIds] = useState(true);
     const [annotationSize, setAnnotationSize] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);
-    const modelOptions = useMemo(
-        () => createModelOptions(segmentationConfidence, poseConfidence),
+    const [knifeConfidence, setKnifeConfidence] = useState(0.5);
+    const imageModelOptions = useMemo(
+        () => JSON.stringify({
+            ...createModelOptions(segmentationConfidence, poseConfidence),
+            "object-detection": {model: KNIFE_MODEL, conf: knifeConfidence},
+        }),
+        [knifeConfidence, poseConfidence, segmentationConfidence],
+    );
+    const webcamModelOptions = useMemo(
+        () => JSON.stringify(createModelOptions(segmentationConfidence, poseConfidence)),
         [poseConfidence, segmentationConfidence],
+    );
+    const videoModelOptions = useMemo(
+        () => createVideoModelOptions(segmentationConfidence, poseConfidence, knifeConfidence),
+        [knifeConfidence, poseConfidence, segmentationConfidence],
     );
     const videoRef = useRef(null);
     const playerContainerRef = useRef(null);
     const fileVideoUrlRef = useRef("");
+    const videoFileRef = useRef(null);
     const mailAttemptedRef = useRef("");
     const mailInFlightRef = useRef(false);
+    const webcamIncidentCaptureKeyRef = useRef("");
+    const fetchKnifeImageDetections = useCallback(async (source, confidence, signal) => {
+        const params = new URLSearchParams({
+            model: KNIFE_MODEL,
+            conf: String(confidence),
+        });
+        let response;
+        if (typeof source === "string") {
+            params.set("source", source);
+            response = await fetch(`${KNIFE_IMAGE_ENDPOINT}?${params.toString()}`, {signal});
+        } else {
+            const formData = new FormData();
+            formData.append("source", source, source.name ?? "knife-frame.jpg");
+            response = await fetch(`${KNIFE_IMAGE_ENDPOINT}?${params.toString()}`, {
+                method: "POST",
+                body: formData,
+                signal,
+            });
+        }
+        return readKnifeDetections(response, model.videoLabels);
+    }, [model.videoLabels]);
     const attackEvent = useMemo(() => {
         if (!Array.isArray(frames)) return null;
         const index = frames.findIndex((frame) => frame?.behavior?.attackDetected);
         return index >= 0 ? {frame: frames[index], index} : null;
     }, [frames]);
+    const webcamAttackEvent = activeSourceId === "webcam" && currentFrame?.behavior?.attackDetected
+        ? {frame: currentFrame, index: currentFrame.behavior.frameIndex ?? 0}
+        : null;
+    const incidentEvent = activeSourceId === "webcam" ? webcamAttackEvent
+        : activeSourceId === "video" ? attackEvent : null;
+    const incidentEventKey = incidentEvent
+        ? activeSourceId === "webcam"
+            ? `webcam:${incidentEvent.frame.behavior.attackerTrackId ?? "unknown"}:${incidentEvent.frame.behavior.attackedVictimTrackIds?.join(",") || "unknown"}`
+            : `${videoSource}:${incidentEvent.frame.frame_index ?? incidentEvent.index}`
+        : "";
+    const incidentEventRef = useRef(null);
+    incidentEventRef.current = incidentEvent;
     const screenshotLabels = useMemo(() => ({
         attacker: model.email.possibleAttacker,
         victim: model.email.possibleVictim,
         attackedVictim: model.email.attackDetected,
     }), [model.email]);
+    const roleLabels = useMemo(() => ({
+        attacker: model.imageLabels.attacker,
+        victim: model.imageLabels.potentialVictim,
+        attackedVictim: model.imageLabels.potentialVictim,
+    }), [model.imageLabels.attacker, model.imageLabels.potentialVictim]);
     const videoLabels = useMemo(() => ({
-        ...screenshotLabels,
+        ...roleLabels,
         videoAlt: model.videoLabels.videoAlt,
-    }), [model.videoLabels.videoAlt, screenshotLabels]);
+    }), [model.videoLabels.videoAlt, roleLabels]);
     const segmentationCounts = useMemo(() => {
         const segmentations = currentFrame?.predictions?.segmentation;
         if (!Array.isArray(segmentations)) return {};
@@ -133,6 +220,7 @@ export const KnifeAttackDetection = ({model}) => {
     const annotationOptions = useMemo(() => ({
         segmentationConfidence,
         poseConfidence,
+        knifeConfidence,
         selectedSegmentationClasses,
         selectedKeypoints,
         showMasks,
@@ -144,6 +232,7 @@ export const KnifeAttackDetection = ({model}) => {
         annotationSize,
     }), [
         annotationSize,
+        knifeConfidence,
         poseConfidence,
         selectedKeypoints,
         selectedSegmentationClasses,
@@ -249,8 +338,8 @@ export const KnifeAttackDetection = ({model}) => {
     ]), [showConfidence, showIds, showKeypoints, showLabels, showMasks, showSkeleton, t]);
     const videoQueryParams = useMemo(() => ({
         models: MODELS,
-        model_options: modelOptions,
-    }), [modelOptions]);
+        model_options: videoModelOptions,
+    }), [videoModelOptions]);
     const validateVideoFile = useCallback((file) => {
         const supportedTypes = ["video/mp4", "video/webm", "video/ogg"];
         const supportedExtension = /\.(mp4|webm|ogv|ogg)$/i.test(file.name);
@@ -270,17 +359,20 @@ export const KnifeAttackDetection = ({model}) => {
         setCurrentFrame(null);
         setEmailText("");
         setScreenshotBlob(null);
+        setScreenshotEventKey("");
         setScreenshotError("");
         setScreenshotUrl("");
         setMailError("");
         setMailStatus("");
         mailAttemptedRef.current = "";
+        webcamIncidentCaptureKeyRef.current = "";
     }, []);
 
     const handleVideoFileChange = useCallback((file) => {
         if (fileVideoUrlRef.current) URL.revokeObjectURL(fileVideoUrlRef.current);
         const nextUrl = file ? URL.createObjectURL(file) : "";
         fileVideoUrlRef.current = nextUrl;
+        videoFileRef.current = file;
         setVideoFile(file);
         setVideoUrl("");
         setVideoSource(nextUrl);
@@ -308,7 +400,9 @@ export const KnifeAttackDetection = ({model}) => {
             setRequestError(model.videoLabels.invalidResponse);
             return;
         }
-        const enrichedFrames = analyzeKnifeAttackFrames(result);
+        const enrichedFrames = analyzeKnifeAttackFrames(result, {
+            requireKnifeOverlapForAttacker: true,
+        });
         setFrames(enrichedFrames);
         setCurrentFrame(enrichedFrames[0] ?? null);
         setVideoSource(source instanceof File ? fileVideoUrlRef.current : source ?? fileVideoUrlRef.current);
@@ -318,14 +412,20 @@ export const KnifeAttackDetection = ({model}) => {
         setRequestError(model.videoLabels.videoLoadError);
     }, [model.videoLabels.videoLoadError]);
 
+    const handleRecipientChange = useCallback((value) => {
+        setRecipient(value);
+        setMailError("");
+    }, []);
+
     const handleMailSend = useCallback(async (allowRetry = false) => {
-        if (!attackEvent || !screenshotBlob || !emailText || mailInFlightRef.current) return;
+        if (!incidentEventRef.current || !incidentEventKey || !screenshotBlob
+            || screenshotEventKey !== incidentEventKey || !emailText || mailInFlightRef.current) return;
         const address = recipient.trim();
         if (!EMAIL_PATTERN.test(address)) {
             setMailError(model.email.invalidRecipient);
             return;
         }
-        const eventKey = `${videoSource}:${attackEvent.frame.frame_index ?? attackEvent.index}`;
+        const eventKey = incidentEventKey;
         if (!allowRetry && mailAttemptedRef.current === eventKey) return;
 
         mailAttemptedRef.current = eventKey;
@@ -357,106 +457,142 @@ export const KnifeAttackDetection = ({model}) => {
             mailInFlightRef.current = false;
             setMailSending(false);
         }
-    }, [attackEvent, emailText, model.email, recipient, screenshotBlob, videoSource]);
+    }, [emailText, incidentEventKey, model.email, recipient, screenshotBlob, screenshotEventKey]);
 
     useEffect(() => {
-        if (screenshotBlob && recipient.trim()) void handleMailSend();
-    }, [handleMailSend, recipient, screenshotBlob]);
+        if (!mailSending && incidentEventKey && screenshotEventKey === incidentEventKey
+            && screenshotBlob && recipient.trim()) void handleMailSend();
+    }, [handleMailSend, incidentEventKey, mailSending, recipient, screenshotBlob, screenshotEventKey]);
 
     useEffect(() => {
-        if (!attackEvent || !videoSource) return undefined;
+        const activeIncident = incidentEventRef.current;
+        const isWebcamIncident = activeSourceId === "webcam";
+        if (!activeIncident || !incidentEventKey || (!isWebcamIncident && !videoSource)) {
+            if (isWebcamIncident) webcamIncidentCaptureKeyRef.current = "";
+            return undefined;
+        }
+        if (isWebcamIncident) {
+            if (webcamIncidentCaptureKeyRef.current === incidentEventKey) return undefined;
+            webcamIncidentCaptureKeyRef.current = incidentEventKey;
+        }
         let cancelled = false;
         const video = videoRef.current;
         if (!video) return undefined;
-        const timestamp = attackEvent.frame?.timestamp_ms != null
-            ? Number(attackEvent.frame.timestamp_ms) / 1000
-            : getVideoFrameTime(frames, attackEvent.index, video.duration);
-        const body = model.email.incidentBody
-            .replace("{time}", formatTime(timestamp));
-        setEmailText(`${model.email.incidentSubject}\n\n${body}\n${model.email.frameLabel}: ${attackEvent.frame.frame_index ?? attackEvent.index}`);
+        const timestamp = isWebcamIncident ? null : activeIncident.frame?.timestamp_ms != null
+            ? Number(activeIncident.frame.timestamp_ms) / 1000
+            : getVideoFrameTime(frames, activeIncident.index, video.duration);
+        const body = isWebcamIncident
+            ? model.email.webcamIncidentBody
+            : model.email.incidentBody.replace("{time}", formatTime(timestamp));
+        const frameLabel = isWebcamIncident
+            ? ""
+            : `\n${model.email.frameLabel}: ${activeIncident.frame.frame_index ?? activeIncident.index}`;
+        setEmailText(`${model.email.incidentSubject}\n\n${body}${frameLabel}`);
         setScreenshotError("");
         setMailError("");
         setMailStatus("");
         setScreenshotBlob(null);
+        setScreenshotEventKey("");
         setScreenshotUrl("");
 
         const capture = async () => {
             try {
                 const screenshot = await createIncidentScreenshot(
                     video,
-                    attackEvent.frame,
+                    activeIncident.frame,
                     timestamp,
-                    screenshotLabels,
+                    isWebcamIncident ? roleLabels : screenshotLabels,
+                    isWebcamIncident ? {showPoseIds: false, useDetectionLabelStyle: true} : undefined,
                 );
                 if (cancelled) return;
                 setScreenshotBlob(screenshot);
+                setScreenshotEventKey(incidentEventKey);
                 setScreenshotUrl(URL.createObjectURL(screenshot));
             } catch (error) {
                 if (cancelled) return;
-                setScreenshotError(`${model.email.captureError} ${error.message}`);
+                const message = isWebcamIncident
+                    ? model.email.webcamCaptureError
+                    : model.email.captureError;
+                setScreenshotError(`${message} ${error.message}`);
             }
         };
         void capture();
         return () => {
             cancelled = true;
         };
-    }, [attackEvent, frames, model.email, screenshotLabels, videoSource]);
+    }, [
+        activeSourceId,
+        frames,
+        incidentEventKey,
+        model.email,
+        roleLabels,
+        screenshotLabels,
+        videoSource,
+    ]);
 
-    const handleUrlResult = useCallback((result, source) => {
-        if (fileVideoUrlRef.current) URL.revokeObjectURL(fileVideoUrlRef.current);
-        fileVideoUrlRef.current = "";
-        setVideoFile(null);
-        setVideoSource(source);
-        handleResult(result, source);
-    }, [handleResult]);
     const handleUrlPredictionStart = useCallback(() => {
         handlePredictionStart();
         if (fileVideoUrlRef.current) URL.revokeObjectURL(fileVideoUrlRef.current);
         fileVideoUrlRef.current = "";
+        videoFileRef.current = null;
         setVideoFile(null);
         setVideoSource("");
     }, [handlePredictionStart]);
 
-    const rerunVideoPrediction = useCallback(async (nextModelOptions = modelOptions) => {
+    const rerunVideoPrediction = useCallback(async (nextModelOptions = videoModelOptions) => {
         if (!videoSource || (!videoFile && !videoUrl)) return;
         handlePredictionStart();
         setIsPredicting(true);
         try {
-            let response;
+            let multiModelRequest;
             if (videoFile) {
                 const formData = new FormData();
                 formData.append("source", videoFile);
                 MODELS.forEach((selectedModel) => formData.append("models", selectedModel));
                 formData.append("model_options", nextModelOptions);
-                response = await fetch(VIDEO_ENDPOINT, {method: "POST", body: formData});
+                multiModelRequest = fetch(VIDEO_ENDPOINT, {method: "POST", body: formData});
             } else {
                 const params = new URLSearchParams({source: videoUrl, model_options: nextModelOptions});
                 MODELS.forEach((selectedModel) => params.append("models", selectedModel));
-                response = await fetch(`${VIDEO_ENDPOINT}?${params.toString()}`);
+                multiModelRequest = fetch(`${VIDEO_ENDPOINT}?${params.toString()}`);
             }
+            const response = await multiModelRequest;
             const body = await readVideoResponse(response, model.videoLabels);
-            const result = body?.job_id
+            const frames = body?.job_id
                 ? await waitForVideoJob(VIDEO_ENDPOINT, body.job_id, setProgress)
                 : body;
-            handleResult(result, videoFile ? fileVideoUrlRef.current : videoUrl);
+            handleResult(frames, videoFile ?? videoUrl);
         } catch (error) {
             setRequestError(error.message || model.videoLabels.requestError);
         } finally {
             setIsPredicting(false);
         }
-    }, [handlePredictionStart, handleResult, model.videoLabels, modelOptions, videoFile, videoSource, videoUrl]);
+    }, [
+        handlePredictionStart,
+        handleResult,
+        model.videoLabels,
+        videoModelOptions,
+        videoFile,
+        videoSource,
+        videoUrl,
+    ]);
 
     const handleConfidenceThresholdChange = useCallback((modelId, value) => {
         const nextSegmentationConfidence = modelId === "segmentation" ? value : segmentationConfidence;
         const nextPoseConfidence = modelId === "pose-estimation" ? value : poseConfidence;
+        const nextKnifeConfidence = modelId === "knife-detection" ? value : knifeConfidence;
         if (modelId === "segmentation") setSegmentationConfidence(value);
         if (modelId === "pose-estimation") setPoseConfidence(value);
+        if (modelId === "knife-detection") setKnifeConfidence(value);
         if (activeSourceId === "video" && videoSource && Array.isArray(frames)) {
-            void rerunVideoPrediction(createModelOptions(nextSegmentationConfidence, nextPoseConfidence));
+            void rerunVideoPrediction(
+                createVideoModelOptions(nextSegmentationConfidence, nextPoseConfidence, nextKnifeConfidence),
+            );
         }
     }, [
         activeSourceId,
         frames,
+        knifeConfidence,
         poseConfidence,
         rerunVideoPrediction,
         segmentationConfidence,
@@ -475,9 +611,17 @@ export const KnifeAttackDetection = ({model}) => {
             value: poseConfidence,
             onChange: (value) => handleConfidenceThresholdChange("pose-estimation", value),
         },
+        {
+            id: "knife-detection",
+            label: model.videoLabels.knifeConfidence,
+            value: knifeConfidence,
+            onChange: (value) => handleConfidenceThresholdChange("knife-detection", value),
+        },
     ]), [
         handleConfidenceThresholdChange,
+        knifeConfidence,
         model.videoLabels.poseConfidence,
+        model.videoLabels.knifeConfidence,
         model.videoLabels.segmentationConfidence,
         poseConfidence,
         segmentationConfidence,
@@ -526,8 +670,11 @@ export const KnifeAttackDetection = ({model}) => {
 
     const sendFields = useMemo(() => ({
         models: MODELS,
-        model_options: modelOptions,
-    }), [modelOptions]);
+        model_options: videoModelOptions,
+    }), [videoModelOptions]);
+    const handleUploadedVideoResult = useCallback((result) => {
+        handleResult(result, videoFileRef.current);
+    }, [handleResult]);
     const sources = ["image", "video", "webcam"].map((id) => ({
         id,
         name: model.mode[id].name,
@@ -549,20 +696,31 @@ export const KnifeAttackDetection = ({model}) => {
                 <KnifeAttackImage
                     model={model}
                     searchTerms={PEXELS_SEARCH_TERMS}
+                    roleLabels={roleLabels}
                     onFrameChange={setCurrentFrame}
                     annotationOptions={annotationOptions}
-                    modelOptions={modelOptions}
+                    modelOptions={imageModelOptions}
                     predictionController={sourcePredictionControllerProps}
                 />
             ) : null}
             {activeSourceId === "webcam" ? (
-                <KnifeAttackWebcam
-                    model={model}
-                    onFrameChange={setCurrentFrame}
-                    annotationOptions={annotationOptions}
-                    modelOptions={modelOptions}
-                    predictionController={sourcePredictionControllerProps}
-                />
+                <div className="space-y-4">
+                    <RecipientEmailInput
+                        email={model.email}
+                        value={recipient}
+                        onChange={handleRecipientChange}
+                    />
+                    <KnifeAttackWebcam
+                        model={model}
+                        mediaRef={videoRef}
+                        roleLabels={roleLabels}
+                        onFrameChange={setCurrentFrame}
+                        annotationOptions={annotationOptions}
+                        modelOptions={webcamModelOptions}
+                        fetchKnifeDetections={fetchKnifeImageDetections}
+                        predictionController={sourcePredictionControllerProps}
+                    />
+                </div>
             ) : null}
             {activeSourceId === "video" ? (
                 <>
@@ -573,24 +731,11 @@ export const KnifeAttackDetection = ({model}) => {
                             message={model.videoLabels.processing}
                             progress={progress}
                         />
-                        <div>
-                            <label htmlFor="knife-attack-recipient"
-                                   className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                                {model.email.recipientLabel}
-                            </label>
-                            <input
-                                id="knife-attack-recipient"
-                                type="email"
-                                autoComplete="email"
-                                value={recipient}
-                                onChange={(event) => {
-                                    setRecipient(event.target.value);
-                                    setMailError("");
-                                }}
-                                placeholder={model.email.recipientPlaceholder}
-                                className="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                            />
-                        </div>
+                        <RecipientEmailInput
+                            email={model.email}
+                            value={recipient}
+                            onChange={handleRecipientChange}
+                        />
                         <div className="flex flex-col items-center gap-4">
                             <VideoUploader
                                 label={model.mode.video.uploadLabel}
@@ -605,7 +750,7 @@ export const KnifeAttackDetection = ({model}) => {
                                 disabled={isPredicting}
                                 onVideoChange={handleVideoFileChange}
                                 onPredictionStart={handlePredictionStart}
-                                onResult={(result) => handleResult(result, fileVideoUrlRef.current)}
+                                onResult={handleUploadedVideoResult}
                                 onError={setRequestError}
                                 onLoadingChange={setIsPredicting}
                                 onProgressChange={setProgress}
@@ -624,7 +769,7 @@ export const KnifeAttackDetection = ({model}) => {
                                 validateUrl={validateVideoUrl}
                                 loadingLabel={model.videoLabels.processing}
                                 disabled={isPredicting}
-                                onResult={handleUrlResult}
+                                onResult={handleResult}
                                 onPredictionStart={handleUrlPredictionStart}
                                 onLoadingChange={setIsPredicting}
                                 onProgressChange={setProgress}
@@ -674,45 +819,6 @@ export const KnifeAttackDetection = ({model}) => {
                         />
                     ) : null}
 
-                    {attackEvent ? (
-                        <section
-                            className="space-y-4 rounded-3xl border border-amber-300 bg-amber-50 p-6 shadow-sm dark:border-amber-800 dark:bg-gray-800">
-                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{model.email.emailPreviewTitle}</h2>
-                            {screenshotUrl ? (
-                                <img
-                                    src={screenshotUrl}
-                                    alt={model.email.screenshotAlt}
-                                    className="max-h-[32rem] w-auto max-w-full rounded-xl border border-gray-300 dark:border-gray-600"
-                                />
-                            ) : null}
-                            <pre
-                                className="whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-sm text-gray-800 dark:bg-gray-900 dark:text-gray-200">
-                                {emailText}
-                            </pre>
-                            {screenshotError ? <p role="alert"
-                                                  className="text-sm text-red-600 dark:text-red-400">{screenshotError}</p> : null}
-                            {mailSending ? <p role="status"
-                                              className="text-sm text-blue-700 dark:text-blue-300">{model.email.sending}</p> : null}
-                            {mailStatus ? <p role="status"
-                                             className="text-sm text-green-700 dark:text-green-300">{mailStatus}</p> : null}
-                            {mailError ? (
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <p role="alert" className="text-sm text-red-600 dark:text-red-400">{mailError}</p>
-                                    {screenshotBlob && EMAIL_PATTERN.test(recipient.trim()) ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleMailSend(true)}
-                                            disabled={mailSending}
-                                            className="cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            {model.email.retry}
-                                        </button>
-                                    ) : null}
-                                </div>
-                            ) : null}
-                        </section>
-                    ) : null}
-
                     {Array.isArray(frames) ? (
                         <VideoApiResponseCard
                             frames={frames}
@@ -727,6 +833,45 @@ export const KnifeAttackDetection = ({model}) => {
                         />
                     ) : null}
                 </>
+            ) : null}
+            {incidentEventKey ? (
+                <section
+                    className="space-y-4 rounded-3xl border border-amber-300 bg-amber-50 p-6 shadow-sm dark:border-amber-800 dark:bg-gray-800">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{model.email.emailPreviewTitle}</h2>
+                    {screenshotUrl ? (
+                        <img
+                            src={screenshotUrl}
+                            alt={model.email.screenshotAlt}
+                            className="max-h-[32rem] w-auto max-w-full rounded-xl border border-gray-300 dark:border-gray-600"
+                        />
+                    ) : null}
+                    <pre
+                        className="whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-sm text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+                        {emailText}
+                    </pre>
+                    {screenshotError ? <p role="alert"
+                                          className="text-sm text-red-600 dark:text-red-400">{screenshotError}</p> : null}
+                    {mailSending ? <p role="status"
+                                      className="text-sm text-blue-700 dark:text-blue-300">{model.email.sending}</p> : null}
+                    {mailStatus ? <p role="status"
+                                     className="text-sm text-green-700 dark:text-green-300">{mailStatus}</p> : null}
+                    {mailError ? (
+                        <div className="flex flex-wrap items-center gap-3">
+                            <p role="alert" className="text-sm text-red-600 dark:text-red-400">{mailError}</p>
+                            {screenshotBlob && screenshotEventKey === incidentEventKey
+                                && EMAIL_PATTERN.test(recipient.trim()) ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleMailSend(true)}
+                                        disabled={mailSending}
+                                        className="cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {model.email.retry}
+                                    </button>
+                                ) : null}
+                        </div>
+                    ) : null}
+                </section>
             ) : null}
         </ClassificationPageLayout>
     );

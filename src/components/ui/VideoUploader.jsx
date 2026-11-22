@@ -79,7 +79,7 @@ export const VideoUploader = ({
                 onLoadingChange?.(true);
                 try {
                     const result = await sendVideoToAPI(selected, endpoint);
-                    onResult(result);
+                    await onResult(result);
                 } catch (err) {
                     console.error(err);
                     onError?.(err.message || "Failed to upload video.");

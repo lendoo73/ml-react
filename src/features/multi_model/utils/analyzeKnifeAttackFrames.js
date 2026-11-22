@@ -153,20 +153,93 @@ const getTrackId = (identity) => (
         : null
 );
 
-const getSegmentation = (frame) => (
-    Array.isArray(frame?.predictions?.segmentation) ? frame.predictions.segmentation : []
-);
+const toKnifeSegmentation = (detection) => {
+    if (normalizeClassName(detection?.class_name) !== "knife") return null;
+    const {x_min: xMin, y_min: yMin, x_max: xMax, y_max: yMax} = detection?.bbox ?? {};
+    if (![xMin, yMin, xMax, yMax].every((value) => Number.isFinite(Number(value)))) return null;
+    return {
+        ...detection,
+        class_name: "knife",
+        polygon: [[xMin, yMin], [xMax, yMin], [xMax, yMax], [xMin, yMax]],
+    };
+};
+
+const getSegmentation = (frame) => {
+    const segmentations = Array.isArray(frame?.predictions?.segmentation)
+        ? frame.predictions.segmentation
+        : [];
+    const detections = frame?.predictions?.["object-detection"] ?? frame?.predictions?.knife;
+    if (!Array.isArray(detections)) return segmentations;
+    return [
+        ...segmentations.filter((item) => normalizeClassName(item?.class_name) !== "knife"),
+        ...detections.map(toKnifeSegmentation).filter(Boolean),
+    ];
+};
+
+export const MAX_MISSED_KNIFE_FRAMES = 10;
+
+const getAttackerCandidate = (frame, people, knives, requireKnifeOverlap) => {
+    const personDistances = people.map((person) => ({
+        ...person,
+        distance: Math.min(...knives.map((knife) => polygonDistance(knife.polygon, person.item.polygon))),
+    }));
+    const closestDistance = Math.min(...personDistances.map(({ distance }) => distance));
+    if (requireKnifeOverlap && closestDistance > 1e-7) return null;
+
+    const closestPeople = personDistances.filter(({ distance }) => (
+        Math.abs(distance - closestDistance) <= 1e-7
+    ));
+    if (closestPeople.length === 1) return closestPeople[0];
+
+    const wristDistances = getWristDistances(frame, people, knives);
+    const wristRankedPeople = closestPeople
+        .map((person) => ({
+            ...person,
+            wristDistance: wristDistances.get(person.identity) ?? Infinity,
+        }))
+        .filter(({ wristDistance }) => Number.isFinite(wristDistance))
+        .sort((first, second) => first.wristDistance - second.wristDistance);
+
+    return wristRankedPeople.length > 1
+        && wristRankedPeople[0].wristDistance < wristRankedPeople[1].wristDistance - 1e-7
+        ? wristRankedPeople[0]
+        : null;
+};
+
+const getNearestVictimIdentity = (people, knives, attackerIdentity, currentVictimIdentity) => {
+    const nonAttackers = people.filter(({ identity }) => identity !== attackerIdentity);
+    if (!nonAttackers.length) return null;
+
+    const distances = nonAttackers.map((person) => ({
+        ...person,
+        distance: Math.min(...knives.map((knife) => polygonDistance(knife.polygon, person.item.polygon))),
+    }));
+    const closestDistance = Math.min(...distances.map(({ distance }) => distance));
+    const closestPeople = distances.filter(({ distance }) => (
+        Math.abs(distance - closestDistance) <= 1e-7
+    ));
+    if (closestPeople.length === 1) return closestPeople[0].identity;
+    return closestPeople.some(({ identity }) => identity === currentVictimIdentity)
+        ? currentVictimIdentity
+        : null;
+};
 
 /**
- * Enrich ordered multi-model frames with provisional attacker, victim, and
- * first-overlap attack markers. Segmentation track IDs identify people across
- * frames; pose tracker IDs are intentionally not used for cross-model matching.
+ * Enrich ordered multi-model frames with optional roles and possible-attack
+ * evidence. Once a possible attack starts, attacker identity persists through
+ * short knife-detection gaps and the nearest non-attacker is the potential
+ * victim. Segmentation track IDs identify people across frames; pose tracker
+ * IDs are intentionally not used for cross-model matching.
  *
  * @param {Array<object>} frames - Ordered multi-model prediction frames.
+ * @param {{ requireKnifeOverlapForAttacker?: boolean }} [options] - Require knife/person overlap before assigning an attacker.
  * @returns {Array<object>} New frames with frontend-derived behavior annotations.
  */
-export const analyzeKnifeAttackFrames = (frames) => {
+export const analyzeKnifeAttackFrames = (frames, options = {}) => {
     let attackerIdentity = null;
+    let victimIdentity = null;
+    let attackActive = false;
+    let missedKnifeFrames = 0;
     const attackedIdentities = new Set();
 
     return (Array.isArray(frames) ? frames : []).map((frame, frameIndex) => {
@@ -178,37 +251,62 @@ export const analyzeKnifeAttackFrames = (frames) => {
         const knives = segmentations.filter((item) => (
             normalizeClassName(item?.class_name) === "knife" && isValidPolygon(item?.polygon)
         ));
+        const knifeContactIdentities = new Set(
+            people
+                .filter(({ item }) => knives.some((knife) => polygonsOverlap(knife.polygon, item.polygon)))
+                .map(({ identity }) => identity),
+        );
+        const hasAttackEvidence = people.length > 1 && knifeContactIdentities.size > 0;
 
-        if (!attackerIdentity && knives.length && people.length) {
-            const knife = knives[0];
-            const personDistances = people.map((person) => ({
-                ...person,
-                distance: polygonDistance(knife.polygon, person.item.polygon),
-            }));
-            const closestDistance = Math.min(...personDistances.map(({ distance }) => distance));
-            const closestPeople = personDistances.filter(({ distance }) => (
-                Math.abs(distance - closestDistance) <= 1e-7
-            ));
-            const wristDistances = getWristDistances(frame, people, knives);
-            const closestPerson = closestPeople.reduce((closest, person) => (
-                (wristDistances.get(person.identity) ?? Infinity)
-                    < (wristDistances.get(closest.identity) ?? Infinity)
-                    ? person
-                    : closest
-            ));
-            attackerIdentity = closestPerson.identity;
+        if (knives.length) {
+            missedKnifeFrames = 0;
+            if (!attackActive && hasAttackEvidence) attackActive = true;
+        } else if (attackActive) {
+            missedKnifeFrames += 1;
+            if (missedKnifeFrames > MAX_MISSED_KNIFE_FRAMES) {
+                attackActive = false;
+                attackerIdentity = null;
+                victimIdentity = null;
+                attackedIdentities.clear();
+            }
+        }
+
+        if (attackActive && knives.length && people.length) {
+            if (!attackerIdentity) {
+                const candidate = getAttackerCandidate(
+                    frame,
+                    people,
+                    knives,
+                    options.requireKnifeOverlapForAttacker,
+                );
+                attackerIdentity = candidate?.identity ?? null;
+            }
+            if (attackerIdentity) {
+                const nearestVictimIdentity = getNearestVictimIdentity(
+                    people,
+                    knives,
+                    attackerIdentity,
+                    victimIdentity,
+                );
+                victimIdentity = nearestVictimIdentity;
+                if (victimIdentity === attackerIdentity) victimIdentity = null;
+            }
         }
 
         const frameAttacker = people.find(({ identity }) => identity === attackerIdentity);
+        const frameVictim = people.find(({ identity }) => identity === victimIdentity);
         const attackedThisFrame = [];
         const annotatedSegmentations = segmentations.map((item) => {
             const person = people.find(({ item: candidate }) => candidate === item);
             if (!person) return item;
-            const isAttacker = person.identity === attackerIdentity;
-            const isVictim = Boolean(attackerIdentity && !isAttacker);
+            const isAttacker = attackActive && person.identity === attackerIdentity;
+            const isVictim = attackActive
+                && person.identity === victimIdentity
+                && person.identity !== attackerIdentity;
+            const overlapsKnife = knifeContactIdentities.has(person.identity);
             const attackDetected = isVictim
                 && !attackedIdentities.has(person.identity)
-                && knives.some((knife) => polygonsOverlap(knife.polygon, item.polygon));
+                && overlapsKnife;
 
             if (attackDetected) {
                 attackedIdentities.add(person.identity);
@@ -221,14 +319,16 @@ export const analyzeKnifeAttackFrames = (frames) => {
                 attackDetected,
             };
         });
-        const victimTrackIds = people
-            .filter(({ identity }) => attackerIdentity && identity !== attackerIdentity)
-            .map(({ item }) => item.track_id ?? null);
+        const victimTrackIds = attackActive && victimIdentity && victimIdentity !== attackerIdentity
+            ? [frameVictim?.item.track_id ?? getTrackId(victimIdentity)]
+            : [];
         const finalSegmentations = annotatedSegmentations.map((item) => (
             normalizeClassName(item?.class_name) === "knife"
                 ? {
                     ...item,
-                    heldByTrackId: frameAttacker?.item.track_id ?? getTrackId(attackerIdentity),
+                    heldByTrackId: attackActive
+                        ? frameAttacker?.item.track_id ?? getTrackId(attackerIdentity)
+                        : null,
                 }
                 : item
         ));
@@ -246,10 +346,12 @@ export const analyzeKnifeAttackFrames = (frames) => {
                 segmentation: finalSegmentations,
             },
             behavior: {
-                attackerTrackId: frameAttacker?.item.track_id ?? getTrackId(attackerIdentity),
+                attackerTrackId: attackActive
+                    ? frameAttacker?.item.track_id ?? getTrackId(attackerIdentity)
+                    : null,
                 victimTrackIds,
                 attackedVictimTrackIds: attackedThisFrame,
-                attackDetected: attackedThisFrame.length > 0,
+                attackDetected: attackActive,
                 frameIndex,
             },
         };

@@ -1,4 +1,5 @@
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {ApiResponseCard} from "../../../components/ui/ApiResponseCard.jsx";
 import {ImageInputPanel} from "../../../components/ui/ImageInputPanel.jsx";
 import {PredictionController} from "../../../components/ui/PredictionController.jsx";
 import {API_URL} from "../../../config/settings.js";
@@ -8,7 +9,7 @@ import {analyzeKnifeAttackFrames} from "../utils/analyzeKnifeAttackFrames.js";
 import {KnifeAttackAnnotations} from "./KnifeAttackAnnotations.jsx";
 
 const IMAGE_ENDPOINT = `${API_URL}/api/multi_model/predict`;
-const MODELS = ["segmentation", "pose-estimation"];
+const MODELS = ["segmentation", "pose-estimation", "object-detection"];
 
 const readResponse = async (response, labels) => {
     const body = await response.json().catch(() => null);
@@ -27,6 +28,7 @@ const readResponse = async (response, labels) => {
 export const KnifeAttackImage = ({
                                      model,
                                      searchTerms,
+                                     roleLabels,
                                      onFrameChange,
                                      predictionController,
                                      annotationOptions,
@@ -40,13 +42,19 @@ export const KnifeAttackImage = ({
     const [imageUrl, setImageUrl] = useState("");
     const [imageSource, setImageSource] = useState("");
     const [frame, setFrame] = useState(null);
+    const [apiResponse, setApiResponse] = useState(null);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const confidenceRef = useRef({
         segmentation: annotationOptions.segmentationConfidence,
         pose: annotationOptions.poseConfidence,
+        knife: annotationOptions.knifeConfidence,
     });
+    const imageAnnotationOptions = useMemo(() => ({
+        ...annotationOptions,
+        showPoseIds: false,
+    }), [annotationOptions]);
 
     const setSourceUrl = useCallback((nextUrl) => {
         if (sourceUrlRef.current === nextUrl) return;
@@ -60,8 +68,11 @@ export const KnifeAttackImage = ({
     }, []);
 
     const handleResult = useCallback((result, source) => {
-        const [nextFrame] = analyzeKnifeAttackFrames([{predictions: result.predictions}]);
+        const [nextFrame] = analyzeKnifeAttackFrames([result], {
+            requireKnifeOverlapForAttacker: true,
+        });
         setFrame(nextFrame);
+        setApiResponse(result);
         onFrameChange(nextFrame);
         setImageLoaded(
             sourceUrlRef.current === source
@@ -76,6 +87,7 @@ export const KnifeAttackImage = ({
         setFile(nextFile);
         setImageUrl("");
         setFrame(null);
+        setApiResponse(null);
         onFrameChange(null);
         setSourceUrl("");
         setImageLoaded(false);
@@ -101,7 +113,13 @@ export const KnifeAttackImage = ({
         } finally {
             setIsLoading(false);
         }
-    }, [handleResult, model.imageLabels, modelOptions, onFrameChange, setSourceUrl]);
+    }, [
+        handleResult,
+        model.imageLabels,
+        modelOptions,
+        onFrameChange,
+        setSourceUrl,
+    ]);
 
     const rerunPrediction = useCallback(async () => {
         const source = sourceUrlRef.current;
@@ -132,25 +150,32 @@ export const KnifeAttackImage = ({
         } finally {
             if (requestId === rerunRequestIdRef.current) setIsLoading(false);
         }
-    }, [file, handleResult, model.imageLabels, modelOptions]);
+    }, [
+        file,
+        handleResult,
+        model.imageLabels,
+        modelOptions,
+    ]);
 
     useEffect(() => {
         const previous = confidenceRef.current;
         const changed = previous.segmentation !== annotationOptions.segmentationConfidence
-            || previous.pose !== annotationOptions.poseConfidence;
+            || previous.pose !== annotationOptions.poseConfidence
+            || previous.knife !== annotationOptions.knifeConfidence;
         confidenceRef.current = {
             segmentation: annotationOptions.segmentationConfidence,
             pose: annotationOptions.poseConfidence,
+            knife: annotationOptions.knifeConfidence,
         };
         if (changed && sourceUrlRef.current) void rerunPrediction();
     }, [
         annotationOptions.poseConfidence,
+        annotationOptions.knifeConfidence,
         annotationOptions.segmentationConfidence,
         rerunPrediction,
     ]);
 
     const handleUrlResult = useCallback((result, source) => {
-        rerunRequestIdRef.current += 1;
         setFile(null);
         handleResult(result, source);
     }, [handleResult]);
@@ -168,6 +193,7 @@ export const KnifeAttackImage = ({
                         setImageUrl(value);
                         setFile(null);
                         setFrame(null);
+                        setApiResponse(null);
                         onFrameChange(null);
                         setSourceUrl("");
                         setImageLoaded(false);
@@ -179,8 +205,10 @@ export const KnifeAttackImage = ({
                     onResult={handleUrlResult}
                     onPredictionStart={() => {
                         rerunRequestIdRef.current += 1;
+                        setFile(null);
                         setIsLoading(false);
                         setFrame(null);
+                        setApiResponse(null);
                         onFrameChange(null);
                         setError("");
                         setImageLoaded(false);
@@ -218,14 +246,18 @@ export const KnifeAttackImage = ({
                                 <KnifeAttackAnnotations
                                     mediaRef={imageRef}
                                     frame={imageLoaded ? frame : null}
-                                    labels={model.email}
-                                    annotationOptions={annotationOptions}
+                                    labels={roleLabels}
+                                    annotationOptions={imageAnnotationOptions}
                                     mediaLoaded={imageLoaded}
+                                    useDetectionLabelStyle
                                 />
                             </div>
                         </div>
                     )}
                 />
+            ) : null}
+            {apiResponse ? (
+                <ApiResponseCard data={apiResponse} label={t("ui.apiResponse")} />
             ) : null}
         </>
     );

@@ -1,3 +1,5 @@
+import {drawAnnotationLabel} from "../../../components/ui/drawAnnotationLabel.js";
+
 const waitForMetadata = (video) => {
     if (video.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve();
     return new Promise((resolve, reject) => {
@@ -108,14 +110,30 @@ export const drawIncidentAnnotations = (context, frame, labels, width, options =
             context.stroke();
         }
 
-        if (options.showLabels !== false && className === "person") {
+        if (className === "person") {
             const label = isAttacker
                 ? labels.attacker
                 : item.attackDetected ? labels.attackedVictim : isVictim ? labels.victim : "";
             if (!label) return;
             const minX = Math.min(...points.map(([x]) => Number(x)));
             const minY = Math.min(...points.map(([, y]) => Number(y)));
-            const fontSize = Math.max(16, width / 60) * (options.annotationSize ?? 1);
+            const annotationSize = options.annotationSize ?? 1;
+            const fontSize = Math.max(16, width / 60) * annotationSize;
+            if (options.useDetectionLabelStyle) {
+                drawAnnotationLabel(context, {
+                    x: minX,
+                    y: Math.max(0, minY - fontSize * 1.35),
+                    className: options.showLabels === false ? "" : label,
+                    colorClassName: className,
+                    trackId: item.track_id,
+                    showTrackId: options.showIds === true,
+                    confidence: options.showConfidence ? Number(item.confidence ?? 0) : null,
+                    fontSize,
+                    padding: 6 * annotationSize,
+                });
+                return;
+            }
+            if (options.showLabels === false) return;
             context.font = `600 ${fontSize}px system-ui, sans-serif`;
             const labelWidth = context.measureText(label).width + fontSize;
             const confidenceText = options.showConfidence
@@ -175,22 +193,37 @@ export const drawIncidentAnnotations = (context, frame, labels, width, options =
                 context.fill();
             });
         }
-        if (options.showLabels || options.showConfidence || options.showIds) {
+        const showPoseIds = options.showPoseIds ?? options.showIds;
+        if (options.showLabels || options.showConfidence || showPoseIds) {
             const visiblePoints = keypoints
                 .map((_, index) => pointAt(index))
                 .filter(Boolean);
             if (visiblePoints.length) {
                 const text = [
-                    options.showIds && pose.track_id != null ? `ID ${pose.track_id}` : "",
+                    showPoseIds && pose.track_id != null ? `ID ${pose.track_id}` : "",
                     options.showConfidence ? `${(Number(pose.confidence ?? 0) * 100).toFixed(0)}%` : "",
                 ].filter(Boolean).join(" ");
                 if (text) {
                     const x = Math.min(...visiblePoints.map(([pointX]) => pointX));
                     const y = Math.max(16, Math.min(...visiblePoints.map(([, pointY]) => pointY)) - 6);
-                    const fontSize = Math.max(14, width / 70) * (options.annotationSize ?? 1);
-                    context.font = `600 ${fontSize}px system-ui, sans-serif`;
-                    context.fillStyle = "#1d4ed8";
-                    context.fillText(text, x, y);
+                    const annotationSize = options.annotationSize ?? 1;
+                    const fontSize = Math.max(14, width / 70) * annotationSize;
+                    if (options.useDetectionLabelStyle) {
+                        drawAnnotationLabel(context, {
+                            x,
+                            y: Math.max(0, y - fontSize * 1.35),
+                            colorClassName: "person",
+                            trackId: pose.track_id,
+                            showTrackId: showPoseIds === true,
+                            confidence: options.showConfidence ? Number(pose.confidence ?? 0) : null,
+                            fontSize,
+                            padding: 6 * annotationSize,
+                        });
+                    } else {
+                        context.font = `600 ${fontSize}px system-ui, sans-serif`;
+                        context.fillStyle = "#1d4ed8";
+                        context.fillText(text, x, y);
+                    }
                 }
             }
         }
@@ -202,18 +235,22 @@ export const drawIncidentAnnotations = (context, frame, labels, width, options =
  *
  * @param {HTMLVideoElement} video - Mounted video element used for playback.
  * @param {object} frame - Enriched incident frame.
- * @param {number} frameTime - Incident position in seconds.
+ * @param {number|null} frameTime - Incident position in seconds, or null to capture the current live frame.
  * @param {{ attacker: string, victim: string, attackedVictim: string }} labels - Localized overlay text.
+ * @param {object} [annotationOptions={}] - Options passed to the shared annotation renderer.
  * @returns {Promise<Blob>} JPEG screenshot blob.
  */
-export const createIncidentScreenshot = async (video, frame, frameTime, labels) => {
+export const createIncidentScreenshot = async (video, frame, frameTime, labels, annotationOptions = {}) => {
     await waitForMetadata(video);
     const previousTime = video.currentTime;
     const wasPlaying = !video.paused;
-    video.pause();
+    const seekToIncidentFrame = Number.isFinite(frameTime);
+    if (seekToIncidentFrame) video.pause();
 
     try {
-        await seekTo(video, Math.min(Math.max(frameTime, 0), video.duration || 0));
+        if (seekToIncidentFrame) {
+            await seekTo(video, Math.min(Math.max(frameTime, 0), video.duration || 0));
+        }
         await waitForFrame(video);
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
@@ -223,7 +260,7 @@ export const createIncidentScreenshot = async (video, frame, frameTime, labels) 
             throw new Error("The incident video has no capturable frame.");
         }
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        drawIncidentAnnotations(context, frame, labels, canvas.width, canvas.height);
+        drawIncidentAnnotations(context, frame, labels, canvas.width, annotationOptions);
         const blob = await new Promise((resolve, reject) => {
             try {
                 canvas.toBlob((result) => (
@@ -235,9 +272,9 @@ export const createIncidentScreenshot = async (video, frame, frameTime, labels) 
         });
         return blob;
     } finally {
-        if (Number.isFinite(previousTime) && video.duration > 0) {
+        if (seekToIncidentFrame && Number.isFinite(previousTime) && video.duration > 0) {
             await seekTo(video, Math.min(previousTime, video.duration));
         }
-        if (wasPlaying) void video.play().catch(() => {});
+        if (seekToIncidentFrame && wasPlaying) void video.play().catch(() => {});
     }
 };

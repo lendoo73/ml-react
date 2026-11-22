@@ -62,7 +62,11 @@ export const KnifeAttackVideo = ({
                 currentFrameRef.current,
                 labels,
                 canvas.width,
-                annotationOptions,
+                {
+                    ...annotationOptions,
+                    showPoseIds: false,
+                    useDetectionLabelStyle: true,
+                },
             );
         }
     }, [annotationOptions, annotationsEnabled, labels, videoRef]);

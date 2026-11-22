@@ -19,6 +19,7 @@ export const KnifeAttackAnnotations = ({
                                            labels,
                                            annotationOptions = DEFAULT_ANNOTATION_OPTIONS,
                                            mediaLoaded = true,
+                                           useDetectionLabelStyle = false,
                                        }) => {
     const canvasRef = useRef(null);
 
@@ -36,8 +37,11 @@ export const KnifeAttackAnnotations = ({
         const context = canvas.getContext("2d");
         if (!context) return;
 
-        drawIncidentAnnotations(context, frame, labels, width, annotationOptions);
-    }, [annotationOptions, frame, labels, mediaLoaded, mediaRef]);
+        drawIncidentAnnotations(context, frame, labels, width, {
+            ...annotationOptions,
+            useDetectionLabelStyle,
+        });
+    }, [annotationOptions, frame, labels, mediaLoaded, mediaRef, useDetectionLabelStyle]);
 
     return (
         <canvas

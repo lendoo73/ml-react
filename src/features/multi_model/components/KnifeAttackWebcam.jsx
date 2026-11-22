@@ -1,8 +1,11 @@
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {PredictionController} from "../../../components/ui/PredictionController.jsx";
 import {API_URL} from "../../../config/settings.js";
 import {useLanguage} from "../../../context/useLanguage.js";
-import {analyzeKnifeAttackFrames} from "../utils/analyzeKnifeAttackFrames.js";
+import {
+    analyzeKnifeAttackFrames,
+    MAX_MISSED_KNIFE_FRAMES,
+} from "../utils/analyzeKnifeAttackFrames.js";
 import {KnifeAttackAnnotations} from "./KnifeAttackAnnotations.jsx";
 
 const IMAGE_ENDPOINT = `${API_URL}/api/multi_model/predict`;
@@ -11,14 +14,19 @@ const FRAME_INTERVAL_MS = 1000;
 
 export const KnifeAttackWebcam = ({
                                       model,
+                                      mediaRef,
+                                      roleLabels,
                                       onFrameChange,
                                       predictionController,
                                       annotationOptions,
                                       modelOptions,
+                                      fetchKnifeDetections,
                                   }) => {
     const {t} = useLanguage();
-    const videoRef = useRef(null);
+    const internalVideoRef = useRef(null);
+    const videoRef = mediaRef ?? internalVideoRef;
     const captureRef = useRef(null);
+    const frameHistoryRef = useRef([]);
     const streamRef = useRef(null);
     const requestRef = useRef(null);
     const requestControllerRef = useRef(null);
@@ -27,12 +35,17 @@ export const KnifeAttackWebcam = ({
     const [frame, setFrame] = useState(null);
     const [error, setError] = useState("");
     const [isStarting, setIsStarting] = useState(false);
+    const webcamAnnotationOptions = useMemo(() => ({
+        ...annotationOptions,
+        showPoseIds: false,
+    }), [annotationOptions]);
 
     const stopWebcam = useCallback(() => {
         clearInterval(requestRef.current);
         requestRef.current = null;
         requestControllerRef.current?.abort();
         requestControllerRef.current = null;
+        frameHistoryRef.current = [];
         streamRef.current?.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         if (videoRef.current) videoRef.current.srcObject = null;
@@ -40,10 +53,11 @@ export const KnifeAttackWebcam = ({
         setFrame(null);
         onFrameChange(null);
         setIsStarting(false);
-    }, [onFrameChange]);
+    }, [onFrameChange, videoRef]);
 
     const startWebcam = useCallback(async () => {
         setError("");
+        frameHistoryRef.current = [];
         setFrame(null);
         onFrameChange(null);
         setIsStarting(true);
@@ -59,7 +73,7 @@ export const KnifeAttackWebcam = ({
             setError(startError.message || t("ui.webcamAccessError"));
             setIsStarting(false);
         }
-    }, [onFrameChange, t]);
+    }, [onFrameChange, t, videoRef]);
 
     useEffect(() => {
         const video = videoRef.current;
@@ -92,11 +106,18 @@ export const KnifeAttackWebcam = ({
                 if (streamRef.current !== stream) return;
                 const controller = new AbortController();
                 requestControllerRef.current = controller;
-                const response = await fetch(IMAGE_ENDPOINT, {
-                    method: "POST",
-                    body: formData,
-                    signal: controller.signal,
-                });
+                const [response, knifeDetections] = await Promise.all([
+                    fetch(IMAGE_ENDPOINT, {
+                        method: "POST",
+                        body: formData,
+                        signal: controller.signal,
+                    }),
+                    fetchKnifeDetections(
+                        blob,
+                        annotationOptions.knifeConfidence,
+                        controller.signal,
+                    ),
+                ]);
                 const body = await response.json().catch(() => null);
                 if (!response.ok) {
                     const detail = Array.isArray(body?.detail)
@@ -108,7 +129,17 @@ export const KnifeAttackWebcam = ({
                     throw new Error(model.imageLabels.invalidResponse);
                 }
                 if (streamRef.current === stream) {
-                    const [nextFrame] = analyzeKnifeAttackFrames([{predictions: body.predictions}]);
+                    const rawFrame = {
+                        predictions: {...body.predictions, knife: knifeDetections},
+                    };
+                    frameHistoryRef.current = [
+                        ...frameHistoryRef.current,
+                        rawFrame,
+                    ].slice(-(MAX_MISSED_KNIFE_FRAMES + 1));
+                    const analyzedFrames = analyzeKnifeAttackFrames(frameHistoryRef.current, {
+                        requireKnifeOverlapForAttacker: true,
+                    });
+                    const nextFrame = analyzedFrames[analyzedFrames.length - 1];
                     setFrame(nextFrame);
                     onFrameChange(nextFrame);
                     setError("");
@@ -136,14 +167,18 @@ export const KnifeAttackWebcam = ({
         model.imageLabels.captureError,
         model.imageLabels.invalidResponse,
         model.imageLabels.requestError,
+        annotationOptions.knifeConfidence,
+        fetchKnifeDetections,
         modelOptions,
         onFrameChange,
         stream,
+        videoRef,
     ]);
 
     useEffect(() => () => {
         clearInterval(requestRef.current);
         requestControllerRef.current?.abort();
+        frameHistoryRef.current = [];
         streamRef.current?.getTracks().forEach((track) => track.stop());
     }, []);
 
@@ -166,8 +201,9 @@ export const KnifeAttackWebcam = ({
                         <KnifeAttackAnnotations
                             mediaRef={videoRef}
                             frame={frame}
-                            labels={model.email}
-                            annotationOptions={annotationOptions}
+                            labels={roleLabels ?? model.email}
+                            annotationOptions={webcamAnnotationOptions}
+                            useDetectionLabelStyle
                         />
                     </div>
                 )}

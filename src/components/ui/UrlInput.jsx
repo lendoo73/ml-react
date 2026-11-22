@@ -103,7 +103,7 @@ export const UrlInput = ({
                     onProgressChange?.(value);
                 })
                 : data;
-            onResult(result, urlToPredict);
+            await onResult(result, urlToPredict);
         } catch (requestError) {
             console.error("Error predicting media URL:", requestError);
             setError(requestError.message || t("ui.unableToProcessUrl"));
@@ -153,7 +153,7 @@ export const UrlInput = ({
                             onRandomClassChange?.(typeof selection === "string" ? "" : selection.query ?? "");
                             if (selection && typeof selection === "object" && "result" in selection) {
                                 setImgUrl(selection.file ? "" : nextUrl);
-                                onResult(selection.result, selection.file ?? nextUrl);
+                                await onResult(selection.result, selection.file ?? nextUrl);
                             } else if (selection && typeof selection === "object" && selection.predict === false) {
                                 setImgUrl(nextUrl);
                             } else {
