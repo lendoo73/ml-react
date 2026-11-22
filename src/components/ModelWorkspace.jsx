@@ -22,11 +22,11 @@ import { PoseImage } from "../features/pose/components/PoseImage.jsx";
 import { PoseVideo } from "../features/pose/components/PoseVideo.jsx";
 import { PoseWebcam } from "../features/pose/components/PoseWebcam.jsx";
 import { PosePredictionResult } from "../features/pose/components/PosePredictionResult.jsx";
-import { SegmentationImage } from "../features/segmentation/components/SegmentationImage.jsx";
-import { BrainTumorSegmentation } from "../features/segmentation/pages/brain_tumor/BrainTumorSegmentation.jsx";
-import { PotholeSegmentation } from "../features/segmentation/pages/pothole/PotholeSegmentation.jsx";
-import { Yolo26Segmentation } from "../features/segmentation/pages/yolo26/Yolo26Segmentation.jsx";
-import { useSegmentationClassPreview } from "../features/segmentation/hooks/useSegmentationClassPreview.js";
+import { SegmentationImage } from "../features/instance_segmentation/components/SegmentationImage.jsx";
+import { BrainTumorSegmentation } from "../features/instance_segmentation/pages/brain_tumor/BrainTumorSegmentation.jsx";
+import { PotholeSegmentation } from "../features/instance_segmentation/pages/pothole/PotholeSegmentation.jsx";
+import { Yolo26Segmentation } from "../features/instance_segmentation/pages/yolo26/Yolo26Segmentation.jsx";
+import { useSegmentationClassPreview } from "../features/instance_segmentation/hooks/useSegmentationClassPreview.js";
 import { getRandomImageUrl } from "../services/mediaService.js";
 import { KnifeAttackDetection } from "../features/multi_model/pages/knife_attack/KnifeAttackDetection.jsx";
 

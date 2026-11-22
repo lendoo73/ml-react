@@ -12,7 +12,7 @@ Create a new model page for this Vite React application. Before editing, read `.
 Do not invent user-specific requirements, backend contracts, localized copy, model metadata, or assets. Infer details only when supported by repository context or supplied files. Ask concise, focused questions before making changes whenever a required value cannot be established. Bundle independent questions together and do not ask for values already clear from the request or repository.
 
 Establish:
-- The domain (`classification`, `detection`, `segmentation`, `pose`, or another existing domain). Infer it from the model/task if unambiguous; otherwise ask.
+- The domain (`classification`, `detection`, `instance_segmentation`, `pose`, or another existing domain). Infer it from the model/task if unambiguous; otherwise ask.
 - Model identity and required display metadata (stable model ID, visible name, hero title/description, class labels, source labels) when not already supplied or represented in translations.
 - The page subfolder name. Derive a short, appropriate name from the model/task context; do not require the user to provide an explicit folder name. Confirm only if multiple plausible names materially affect the structure.
 - Supported source types and whether source cards should be standard or custom. Infer from the model's known inputs and equivalent pages; ask if uncertain. If custom cards are requested, follow that direction while preserving shared behavior where possible.

@@ -22,7 +22,7 @@ const ICONS_BY_KEY = {
     computerVision: Computer,
     detection: ScanSearch,
     classification: Tags,
-    segmentation: Brain,
+    instanceSegmentation: Brain,
     pose: PersonStanding,
     customModel: FlaskConical,
     yolo26: Radar,

@@ -61,7 +61,7 @@ export const navigation = [
                     ],
                 },
                 {
-                    id: "segmentation",
+                    id: "instance_segmentation",
                     name: "Segmentation",
                     items: [
                         {
@@ -74,7 +74,7 @@ export const navigation = [
                         {
                             id: "segmentation-brain-tumor",
                             name: "Segmentation de tumeurs cérébrales",
-                            iconKey: "segmentation",
+                            iconKey: "instanceSegmentation",
                         },
                         {
                             id: "segmentation-pothole",
